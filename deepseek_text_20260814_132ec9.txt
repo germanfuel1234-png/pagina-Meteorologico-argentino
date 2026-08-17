@@ -1,0 +1,40 @@
+
+## 8. Tecnologías Sugeridas
+
+| Área | Opción 1 (Gratuita/Open Source) | Opción 2 (Comercial/Con más funciones) |
+|------|--------------------------------|----------------------------------------|
+| **Frontend** | HTML, CSS, JavaScript vanilla o React/Vue | Next.js, Svelte |
+| **Mapa** | Leaflet.js + OpenStreetMap | Mapbox GL JS |
+| **Geocodificación** | Nominatim (OSM) | Mapbox Geocoding |
+| **Gráficos** | Chart.js | Highcharts |
+| **Manejo de capas** | Leaflet Canvas/Plugin | Mapbox Layers |
+| **Backend (opcional)** | Node.js/Express | Servicios serverless |
+
+## 9. Puntos Clave para Replicar la Esencia de Windy.com
+
+1.  **Mapa como centro de la experiencia:** No es solo un buscador, el mapa es la interfaz principal.
+2.  **Capas de datos superpuestas:** La capacidad de visualizar diferentes variables meteorológicas sobre el mapa es fundamental.
+3.  **Interacción directa:** Hacer clic en el mapa debe ser la forma más natural de obtener información.
+4.  **Historial útil y contextual:** Que muestre más que solo nombres, un dato del clima actual para cada ubicación.
+5.  **Actualización en tiempo real:** Los datos deben sentirse vivos y actualizados.
+6.  **Diseño limpio y minimalista:** Sin distracciones, enfocado en la información y el mapa.
+7.  **Rendimiento impecable:** El mapa y el historial deben ser rápidos y fluidos.
+8.  **Internacionalización:** Soporte para diferentes idiomas y formatos (ej. Celsius/Fahrenheit).
+9.  **Accesibilidad y usabilidad:** Que sea fácil de usar para todo tipo de usuarios.
+
+## 10. Pasos de Desarrollo Sugeridos (MVP)
+
+| Paso | Descripción |
+|------|-------------|
+| 1 | Configurar el proyecto y obtener la API Key de Windy. |
+| 2 | Implementar el mapa interactivo básico (Leaflet). |
+| 3 | Integrar la función de geocodificación y búsqueda por texto. |
+| 4 | Conectar con la API Point Forecast de Windy y mostrar los datos en un panel. |
+| 5 | Implementar el historial de búsquedas (guardar en localStorage, mostrar lista, botón de borrar). |
+| 6 | Añadir la funcionalidad de clic en el mapa para obtener datos. |
+| 7 | Pulir la interfaz para que sea limpia, moderna y responsiva. |
+| 8 | (Opcional) Agregar capas superpuestas al mapa. |
+
+---
+
+**¡Listo!** Este archivo contiene las especificaciones técnicas, funcionalidades extra, flujo de usuario, tecnologías sugeridas, puntos clave y pasos de desarrollo para construir un portal climático local que replique la esencia de Windy.com.

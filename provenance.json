@@ -1,0 +1,82 @@
+{
+  "artifact": "Mapa interactivo del tiempo · SMN (prototipo tipo Windy)",
+  "generatedAt": "2026-08-13T21:34:00Z",
+  "sources": [
+    {
+      "type": "public_api",
+      "name": "Open-Meteo",
+      "accountLabel": "api.open-meteo.com",
+      "note": "Pronóstico horario 120 h (5 días) para Buenos Aires. El navegador refresca en vivo; data.json guarda el snapshot del 2026-08-13 18:00 GMT-3."
+    },
+    {
+      "type": "public_api",
+      "name": "Open-Meteo · grilla GFS",
+      "accountLabel": "api.open-meteo.com (multi-location)",
+      "note": "Grilla real 7x5 sobre el viewport (hasta 35 puntos por request, 120 h por punto). Alimenta los campos de temperatura, nubes, humedad, presión, precipitación (prob.) y el viento de las partículas. Refetch con debounce al mover el mapa y al cambiar de ciudad. Modelo configurable (GFS / ECMWF IFS025 / ICON) vía parámetro keyless models= de Open-Meteo; la clave de caché del grid incluye el modelo."
+    },
+    {
+      "type": "public_api",
+      "name": "RainViewer",
+      "accountLabel": "api.rainviewer.com",
+      "note": "Índice público de mosaicos de radar (13 frames). El navegador refresca el índice en vivo con fallback al snapshot."
+    },
+    {
+      "type": "public_tiles",
+      "name": "Base de mapa",
+      "accountLabel": "CARTO / NASA GIBS",
+      "note": "Base oscura CARTO dark_all y satélite real NASA GIBS (VIIRS_SNPP CorrectedReflectance TrueColor, WMTS/WMS keyless, CORS abierto)."
+    },
+    {
+      "type": "reference",
+      "name": "SMN / argentina.gob.ar",
+      "accountLabel": "www.argentina.gob.ar/smn",
+      "note": "Identidad visual de referencia: azul marino #242C4F extraído del portal."
+    },
+    {
+      "type": "reference",
+      "name": "Windy",
+      "accountLabel": "www.windy.com",
+      "note": "Layout de referencia: capas a la derecha, línea de tiempo abajo, lectura bajo el cursor."
+    },
+    {
+      "type": "public_tiles",
+      "name": "Windy · webcams",
+      "accountLabel": "www.windy.com/webcams/{id}",
+      "note": "Catálogo keyless de 5 webcams argentinas (IDs reales de Windy: Sheraton Retiro, Río de la Plata, BA Sudeste, Bariloche Centro Cívico, Miramar Playa). Los fotogramas en vivo viven en images.windy.com/cameras/current/{id}/{size} y expiran ~10 min; el mapa los refresca al mover la vista y al re-renderizar la capa. Con clave de Windy en el navegador, la capa consulta la API v3 (webcams por bounding box, hasta 50) y el timelapse de cada cámara sincronizado con la línea de tiempo."
+    },
+    {
+      "type": "public_api",
+      "name": "Windy · Point Forecast",
+      "accountLabel": "api.windy.com/api/point-forecast/v2",
+      "note": "Opcional y key-gated: cuando el usuario guarda una clave de Windy en runtime (localStorage), el pronóstico de la ciudad activa se toma de la API de Windy (POST con key en el body) con los parámetros temp, wind, dewpoint, rh, pressure, precip, gust, lclouds/mclouds/hclouds, ptype y weatherWarnings. Reemplaza al pronóstico de Open-Meteo para la tarjeta de ciudad y alimenta el panel de alertas con avisos meteorológicos de Windy (códigos 45-96 → texto en español, nivel warn/danger). El modelo del selector (GFS/ECMWF/ICON) mapea al model= de Windy. Si no hay clave o la llamada falla, se mantiene Open-Meteo."
+    },
+    {
+      "type": "public_embed",
+      "name": "Windy · vista completa (embed)",
+      "accountLabel": "embed.windy.com/embed2.html",
+      "note": "Botón 'Windy' en la barra superior: abre el mapa público de Windy (keyless) en un overlay a pantalla completa centrado en el viewport actual, con el overlay mapeado desde la capa activa (temp/wind/clouds/rain/rh/pressure/waves/aqi/cams), unidades métricas y timeline. 'Abrir en pestaña nueva' enlaza al mismo embed."
+    }
+  ],
+  "transformations": [
+    "Pronóstico Open-Meteo compactado: 120 puntos por variable (temp, humedad, prob. precip., viento, dirección, nubosidad, presión).",
+    "Frames de radar reducidos a {time, path} (13).",
+    "Grilla GFS por viewport: interpolación bilineal de los 35 puntos de Open-Meteo para cada celda de las capas y para cada partícula de viento.",
+    "Base satelital: NASA GIBS VIIRS TrueColor (WMS epsg3857, keyless, ~24 h de latencia) reemplaza a Esri.",
+    "Huracanes: STORM_PROXY listo para consumir GeoJSON del NHC (cono + trayectoria + posición actual con ícono pulsante). El feed directo de nhc.noaa.gov NO tiene cabeceras CORS → requiere un proxy; sin proxy se usan las trayectorias de ejemplo (Alfa, Brenda).",
+    "Campos con fallback procedural (anclado a datos reales de la ciudad activa) si la grilla no está disponible (offline/snapshot).",
+    "Capa 'Cámaras en vivo': pins Leaflet (divIcon) con clustering por zoom, tooltip con vista previa lazy (imagen Windy CDN, degradado a placeholder si falla), tarjeta modal con pronóstico local interpolado del instante del timeline, y botón 'Inspeccionar cámara en vivo' en el panel de alertas (cámara más cercana por haversine + flyTo).",
+    "Comparativa de modelos: selector GFS / ECMWF / ICON en el panel. La URL de Open-Meteo (forecast y grilla) incluye &models=<modelo>; gridKey incorpora el modelo para invalidar la caché al cambiar. Olas (WW3) y AQI (CAMS) no dependen del modelo.",
+    "Webcams dinámicas con clave (opcional, runtime): si hay clave en localStorage, fetch de api.windy.com/webcams/api/v3 por bounding box (debounce 600 ms al mover el mapa) y timelapse por cámara; fallback completo al catálogo keyless si la consulta falla.",
+    "Point Forecast de Windy (opcional, runtime): con clave guardada, fetchWindyForecast() reemplaza el pronóstico de la ciudad (STATE.hourly) por datos de la API de Windy —decodifica ts en ms, convierte unidades vía el objeto units (m/s→km/h, Pa→hPa, K→°C) y deriva probabilidad de lluvia desde past3hprecip—; los códigos weatherWarnings se traducen a alertas en español. Sin clave o ante cualquier fallo se conserva el camino Open-Meteo.",
+    "Vista Windy: botón en la barra superior que abre embed.windy.com/embed2.html (keyless) en un overlay con el mismo centro/zoom y la capa mapeada (WINDY_VIEW_OVERLAY); cierre con Esc o botón × y link a pestaña nueva.",
+    "Clic en el mapa: map.on('click') resuelve la localidad más cercana de CITIES (haversine < 70 km) o un 'Punto en el mapa' con coordenadas, coloca el marcador pulsante, guarda en historial y carga el pronóstico.",
+    "Historial en localStorage (clave 'od-hist', máx. 12): cada entrada {id, nombre, region, pais, lat, lon, ultima_consulta, dato_contextual}. Se guarda/actualiza al buscar, al hacer clic en el mapa o en el historial; dato_contextual (ej. '12°C · Nublado') se refresca con cada pronóstico vía updateHistCtx(). Panel izquierdo con 'Borrar historial' y borrado por entrada; visible en escritorio, con toggle en móvil.",
+    "Geocodificación por texto: además del listado local de CITIES, el buscador consulta Nominatim (OSM) con cola de 1 req/s (geoThrottle), accept-language=es, addressdetails y deduplicación/desambiguación mostrando región + país en la lista."
+  ],
+  "refresh": {
+    "canonical": "data.json es el snapshot canónico. El refresh manual actualiza el snapshot y re-renderiza template.html → index.html.",
+    "live": "En runtime el navegador consulta Open-Meteo (pronóstico + grilla GFS del viewport), RainViewer (radar) y NASA GIBS (satélite). Si el usuario guardó una clave de Windy, el pronóstico de la ciudad pasa a Windy Point Forecast y las webcams se listan por la API v3.",
+    "alternativeTiles": "Los tiles de OpenWeatherMap (temp_new, clouds_new, precipitation_new, pressure_new; requiere API key gratuita en openweathermap.org) son una alternativa de render por mosaicos a la grilla GFS. No integrados por defecto.",
+    "secretPolicy": "No se persisten credenciales ni tokens en los archivos del proyecto. La clave de Windy se inyecta en runtime (localStorage, campo 'Clave Windy API') y solo se envía como header x-windy-api-key (webcams v3) o en el body del POST (point-forecast v2) a api.windy.com. La clave OWM (si se adopta) debe inyectarse igual, nunca en los archivos del proyecto."
+  }
+}

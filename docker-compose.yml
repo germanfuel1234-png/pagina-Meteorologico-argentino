@@ -1,0 +1,62 @@
+# docker-compose.yml — Mapa interactivo del tiempo · SMN (Argentina)
+# Arquitectura:
+#   • nginx  : sirve el frontend (index.html) y redirige /api/ -> backend.
+#   • backend: FastAPI (smn_proxy.py) que consulta y cachea datos del SMN.
+#   • redis  : caché compartida/superpuesta (opcional pero recomendada).
+#
+# Uso:
+#   docker compose up --build
+# Abrir:  http://localhost:8080
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: smn-backend
+    restart: unless-stopped
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      REFRESH_MINUTES: "15"
+      # Puerto interno (no exponer; nginx hace de proxy)
+      PORT: "8000"
+      # Ejemplo de capa de satélite GOES-16 alternativa (endpoint propio).
+      # GOES_TILE_LAYER: "https://mi-servidor-goes/tiles/{z}/{x}/{y}.png"
+    depends_on:
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: smn-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: smn-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+    # API base para el frontend (proxy inverso dentro de nginx).
+    environment:
+      SMN_PROXY_BASE: ""
+
+volumes:
+  redis-data:

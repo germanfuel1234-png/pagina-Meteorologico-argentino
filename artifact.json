@@ -1,0 +1,22 @@
+{
+  "title": "Mapa interactivo del tiempo · SMN",
+  "slug": "smn-mapa-interactivo",
+  "pinned": false,
+  "status": "active",
+  "preview": {
+    "type": "html",
+    "entry": "index.html"
+  },
+  "document": {
+    "format": "html_template_v1",
+    "templatePath": "template.html",
+    "generatedPreviewPath": "index.html",
+    "dataPath": "data.json",
+    "dataJson": {
+      "title": "Mapa interactivo del tiempo · SMN",
+      "city": "Buenos Aires",
+      "source": "Open-Meteo (GFS/ECMWF/ICON) · radar RainViewer · NASA GIBS · Windy webcams",
+      "updatedAt": "2026-08-13T18:00:00-03:00"
+    }
+  }
+}

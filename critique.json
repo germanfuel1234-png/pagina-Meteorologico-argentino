@@ -1,0 +1,26 @@
+{
+  "kind": "critique-panel",
+  "score": 4,
+  "axes": {
+    "clarity": {
+      "score": 4,
+      "notes": "Una sola capa de datos activa + base independiente + línea de tiempo. El panel de capas replica el modelo mental de Windy sin ambigüedad."
+    },
+    "hierarchy": {
+      "score": 4,
+      "notes": "Topbar (marca + búsqueda + fuente), mapa a sangre, panel de capas derecho, timeline abajo. Un solo elemento dominante por región."
+    },
+    "typography": {
+      "score": 5,
+      "notes": "Lecturas numéricas y coordenadas en mono tabular; micro-etiquetas en mayúsculas con letter-spacing; system-ui limpio. Sin fuentes decorativas."
+    },
+    "motion": {
+      "score": 4,
+      "notes": "Partículas de viento animadas en loop, radar y capas siguen la línea de tiempo, reprouducción con play/pausa. El timeline mueve todas las capas sincronizadas."
+    },
+    "brand": {
+      "score": 4,
+      "notes": "Azul marino #242C4F (argentina.gob.ar) en marca y estados activos; celeste único como acento; ámbar/rojo reservados a categorías de tormenta."
+    }
+  }
+}

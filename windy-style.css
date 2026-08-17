@@ -1,0 +1,114 @@
+/* ==========================================================================
+   SMN · Estilos complementarios estilo Windy (barra lateral, capas, timeline,
+   gráficos, herramientas de medición). Se carga tras el <style> inline.
+   ========================================================================== */
+
+/* --- Botón de menú siempre visible en la topbar --- */
+.smn-menu-btn{display:flex!important;flex:none}
+.smn-menu-btn:hover{color:var(--accent);border-color:var(--accent)}
+
+/* --- Barra lateral izquierda (colapsable, estilo Windy) --- */
+#smn-sidebar{
+  position:absolute;top:64px;left:14px;bottom:14px;width:min(286px,88vw);
+  z-index:1130;
+  background:rgba(13,17,26,.88);backdrop-filter:blur(14px);
+  border:1px solid var(--border);border-radius:14px;
+  display:flex;flex-direction:column;
+  box-shadow:0 18px 50px rgba(0,0,0,.45);
+  transition:transform .28s ease,opacity .28s ease;
+  overflow:hidden;
+}
+#smn-sidebar:not(.open){transform:translateX(calc(-100% - 10px));opacity:0;pointer-events:none}
+#smn-sidebar.open{transform:none;opacity:1;pointer-events:auto}
+.sb-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.02)}
+.sb-title{font-size:13px;font-weight:700;letter-spacing:-.01em;color:var(--fg)}
+.sb-head button{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:0 4px}
+.sb-head button:hover{color:var(--fg)}
+.sb-scroll{flex:1;overflow-y:auto;padding:8px 12px 16px;scrollbar-width:thin;scrollbar-color:var(--navy) transparent}
+.sb-scroll::-webkit-scrollbar{width:8px}
+.sb-scroll::-webkit-scrollbar-thumb{background:var(--navy);border-radius:8px}
+.sb-group{margin-bottom:16px}
+.sb-group-title{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 8px;font-weight:600}
+.sb-list{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-direction:column;gap:6px;max-height:176px;overflow-y:auto}
+.sb-list li{border-radius:9px;padding:8px 10px;background:rgba(255,255,255,.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sb-list li .fav-info{flex:1;min-width:0}
+.sb-list li .fav-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-list li .fav-reg{font-size:9.5px;color:var(--muted);font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-list .sb-del{background:none;border:none;color:#5b6680;font-size:13px;cursor:pointer;flex:none;padding:2px 4px;border-radius:6px}
+.sb-list .sb-del:hover{color:#ff8a7a}
+.sb-list .sb-empty{font-size:10.5px;color:var(--muted);justify-content:flex-start!important;background:none!important;border-style:dashed!important}
+.sb-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;height:32px;margin-top:6px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--fg);font-size:12px;cursor:pointer;font-family:var(--font-ui)}
+.sb-btn:hover{border-color:var(--accent);color:var(--accent)}
+.sb-btn-accent{background:linear-gradient(160deg,var(--smn-2),var(--smn));border:none;color:#fff;font-weight:600}
+.sb-btn-accent:hover{filter:brightness(1.15);color:#fff;border:none}
+.sb-btn-ghost{background:none}
+.tools-grid{display:flex;gap:8px}
+.tools-grid .sb-btn{margin-top:0}
+.sb-tool{height:46px;flex-direction:column;line-height:1.2}
+.sb-note{font-size:10.5px;color:var(--muted);line-height:1.5;margin:6px 0 0}
+.al-form{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.al-field{font-size:10.5px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.al-field select,.al-field input{height:30px;background:#0b0e15;border:1px solid var(--border);border-radius:8px;color:var(--fg);font-family:var(--font-ui);font-size:12px;padding:0 8px}
+.al-field select:focus,.al-field input:focus{outline:none;border-color:var(--accent)}
+/* --- Grupos de capas (reorganización estilo Windy) --- */
+#layers .lgroup{display:flex;flex-direction:column;gap:2px}
+#layers .lgroup+.lgroup{margin-top:12px;padding-top:4px;border-top:1px solid rgba(255,255,255,.05)}
+#layers .lg-title{font-size:8.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--accent);opacity:.95;margin:2px 2px 4px;font-weight:800;display:flex;align-items:center;gap:4px}
+.layer{flex-wrap:wrap!important;height:auto!important;min-height:38px;padding:6px 10px!important;border:1px solid transparent}
+.layer .ldesc{width:100%;margin-left:26px;font-size:9.5px;color:var(--muted);opacity:.9;line-height:1.25}
+.layer .thumb{margin-left:auto;flex:none}
+.layer:hover{background:rgba(90,160,255,.10);border-color:rgba(120,180,255,.25)}
+.layer.active{background:rgba(90,160,255,.13);border-color:rgba(90,160,255,.35)}
+
+/* --- Timeline: selector de días y marcadores de eventos --- */
+#day-strip{display:flex;gap:6px;margin:0 2px 10px;flex-wrap:wrap;width:100%}
+.day-btn{flex:1;min-width:52px;height:34px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.05);color:var(--muted);font-size:10px;cursor:pointer;font-family:var(--font-ui);text-align:center;line-height:1.15;padding:3px 2px}
+.day-btn b{display:block;font-size:11.5px;font-weight:700}
+.day-btn small{font-size:8.5px;opacity:.85}
+.day-btn:hover{border-color:var(--accent);color:var(--fg)}
+.day-btn.active{background:linear-gradient(160deg,var(--smn-2),var(--smn));color:#fff;border-color:transparent}
+#tl-wrap{position:relative}
+#tl-track{position:relative}
+.tick{transition:background .2s}
+.tick.ev-rain{background:rgba(90,200,255,.30)}
+.tick.ev-storm{background:rgba(255,140,90,.40)}
+.tick.ev-rain.ev-storm{background:linear-gradient(90deg,rgba(90,200,255,.30),rgba(255,140,90,.40))}
+.tick.playing{animation:tickFlash .7s infinite alternate}
+@keyframes tickFlash{to{box-shadow:0 0 0 2px var(--accent)}}
+
+/* --- Gráficos de tendencia (Chart.js) dentro de la tarjeta --- */
+.cc-charts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;padding:0 2px}
+.cc-charts .span2{grid-column:1 / -1}
+.cc-charts .cnv-wrap{position:relative;background:#0b0e15;border:1px solid var(--border);border-radius:10px;padding:6px}
+.cc-charts .cnv-wrap h6{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 4px;padding-left:2px;font-weight:600}
+.cc-charts canvas{display:block;width:100%;height:80px}
+/* --- Toast de alertas personalizadas --- */
+#smn-alert-toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:1600;background:linear-gradient(160deg,#241f33,#1a1824);border:1px solid var(--danger);color:var(--fg);font-size:12px;padding:12px 16px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.55);display:none;max-width:min(420px,90vw);line-height:1.5}
+#smn-alert-toast.show{display:block;animation:toastIn .25s ease}
+#smn-alert-toast b{color:#ffb3a0}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+
+/* --- Herramientas de medición (marcadores Leaflet) --- */
+.smn-measure-lbl{background:rgba(13,17,26,.92);border:1px solid var(--accent);color:var(--fg);font-family:var(--font-ui);font-size:11px;padding:3px 8px;border-radius:7px;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+
+/* --- Responsive --- */
+@media (max-width:1023px){
+  #smn-sidebar{top:62px;left:10px;bottom:10px}
+}
+@media (max-width:639px){
+  #smn-sidebar{width:min(84vw,300px)}
+  .cc-charts{grid-template-columns:1fr}
+}
+
+/* --- Pronóstico extendido (7 días) --- */
+/* El panel arranca colapsado y se despliega con la clase .open (slide-down). */
+#forecast-panel{
+  max-height:0;overflow:hidden;opacity:0;
+  transition:max-height .42s ease,opacity .3s ease;
+}
+#forecast-panel.open{max-height:244px;opacity:1}
+#btn-extended-forecast svg{transition:transform .3s ease}
+#btn-extended-forecast.active svg{transform:rotate(180deg)}
+#btn-extended-forecast:hover{background:rgba(90,160,255,.10)!important;color:var(--accent)!important}
+#extended-chart{width:100%!important;height:190px!important;display:block}
+#forecast-panel .fp-empty{text-align:center;color:var(--muted);font-size:11px;padding:24px 0}

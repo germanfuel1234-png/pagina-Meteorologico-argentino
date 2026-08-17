@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "fileName": "index.html",
+  "entries": [
+    {
+      "id": "082377a9-d723-4d02-a4de-21cdcc13177e",
+      "fileName": "index.html",
+      "version": 1,
+      "label": "Version 1",
+      "createdAt": 1786657568510,
+      "source": "ai",
+      "prompt": "[form answers — discovery]\n- ¿Qué capas/configuraciones debe tener el mapa?: Nubes / satélite, Temperatura, Viento (animación de partículas), Precipitación / lluvia, Radar de tormentas, Todas las que conoscas, Humedad, Seguimiento de huracanes\n- ¿De dónde salen los datos del mapa?: API real (OpenWeather, Windy, Weather API…) [value: real_api]\n- ¿En qué plataforma lo quieres?: Web responsive (también móvil)\n- ¿Para quién es?: Publico general,poblacion\n- Contexto de marca: https://www.argentina.gob.ar/smn\n- ¿Cuánto abarca?: 1pantalla de mapa+panel de capas,ciclo de 5 dias proximos\n- ¿Algo más que deba saber?: me gustaria que luzca lo mas parecida a https://www.windy.com/es/-Seg-de-huracanes/hurricanes?temp,-11.124,-30.841,3,m:dweaetX con un meteorologico normal",
+      "size": 46245,
+      "mime": "text/html; charset=utf-8",
+      "kind": "html",
+      "contentPath": "0001-082377a9-d723-4d02-a4de-21cdcc13177e.html",
+      "promptSource": "message"
+    }
+  ]
+}

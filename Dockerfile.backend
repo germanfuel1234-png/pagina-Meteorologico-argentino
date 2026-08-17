@@ -1,0 +1,20 @@
+# Dockerfile.backend — FastAPI (smn_proxy.py)
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PORT=8000
+
+WORKDIR /srv
+
+# Dependencias primero (mejor capa de cache)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Código
+COPY smn_proxy.py .
+
+EXPOSE 8000
+
+# uvicorn por defecto; refleja el RUN del __main__ (misma app).
+CMD ["uvicorn", "smn_proxy:app", "--host", "0.0.0.0", "--port", "8000"]

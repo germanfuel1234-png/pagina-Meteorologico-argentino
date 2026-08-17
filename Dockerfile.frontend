@@ -1,0 +1,10 @@
+# Dockerfile.frontend — Nginx sirviendo index.html + proxy /api
+FROM nginx:1.27-alpine
+
+# Configuración con proxy inverso hacia el backend FastAPI.
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Frontend estático en el sitio raíz.
+COPY index.html /usr/share/nginx/html/index.html
+
+EXPOSE 80

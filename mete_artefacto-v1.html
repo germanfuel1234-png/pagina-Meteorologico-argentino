@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>SMN · Mapa interactivo del tiempo</title>
+    
+    <!-- ===== HOJA DE ESTILOS UNIFICADA ===== -->
+    <style>
+        /* ===== TOKENS SMN (desde brand-spec.md) ===== */
+        :root {
+            --bg: oklch(0.14 0.02 255);
+            --surface: oklch(0.19 0.025 255);
+            --fg: oklch(0.93 0.01 250);
+            --muted: oklch(0.62 0.02 250);
+            --border: oklch(0.32 0.03 255);
+            --accent: oklch(0.74 0.13 235);
+            --navy: #242C4F;
+            --warn: oklch(0.75 0.16 75);
+            --danger: oklch(0.62 0.20 25);
+            --ok: oklch(0.70 0.14 150);
+            --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            --font-mono: ui-monospace, 'JetBrains Mono', 'IBM Plex Mono', Menlo, monospace;
+        }
+        
+        /* ===== RESET Y BASE ===== */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
+        body {
+            font-family: var(--font-ui);
+            background: #0b0e15;
+            color: var(--fg);
+            overflow: hidden;
+        }
+        
+        /* ===== LAYOUT PRINCIPAL (similar a Windy) ===== */
+        #app {
+            position: fixed;
+            inset: 0;
+            display: grid;
+            grid-template-rows: 56px 1fr 80px;
+            grid-template-columns: 1fr 320px;
+            grid-template-areas:
+                "topbar topbar"
+                "map panel"
+                "timeline timeline";
+        }
+        
+        /* ===== TOPBAR (SMN) ===== */
+        #topbar {
+            grid-area: topbar;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 14px;
+            background: rgba(13, 17, 26, 0.85);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--border);
+            z-index: 1200;
+        }
+        
+        .brand {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            cursor: default;
+        }
+        .brand-mark {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            background: var(--navy);
+            display: grid;
+            place-items: center;
+            font-weight: 800;
+            font-size: 13px;
+            letter-spacing: .04em;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .10);
+        }
+        .brand-text {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.15;
+        }
+        .brand-text strong {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: -.01em;
+        }
+        .brand-text span {
+            font-size: 11px;
+            color: var(--muted);
+        }
+        
+        /* ===== MAPA (ocupa el espacio central) ===== */
+        #map-container {
+            grid-area: map;
+            position: relative;
+            background: #0a0d14;
+            overflow: hidden;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #0a0d14;
+        }
+        
+        /* ===== PANEL DE CAPAS (derecha) ===== */
+        #panel {
+            grid-area: panel;
+            background: rgba(13, 17, 26, 0.88);
+            backdrop-filter: blur(14px);
+            border-left: 1px solid var(--border);
+            padding: 14px;
+            overflow-y: auto;
+            z-index: 1150;
+        }
+        
+        /* ===== LÍNEA DE TIEMPO (abajo) ===== */
+        #timeline {
+            grid-area: timeline;
+            background: rgba(13, 17, 26, 0.92);
+            backdrop-filter: blur(14px);
+            border-top: 1px solid var(--border);
+            padding: 8px 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 1150;
+        }
+        
+        /* ===== READOUT (coordenadas bajo el cursor) ===== */
+        #readout {
+            position: absolute;
+            bottom: 90px;
+            left: 14px;
+            z-index: 1100;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: #cfd9ee;
+            background: rgba(13, 17, 26, .72);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 5px 10px;
+            display: flex;
+            gap: 12px;
+            pointer-events: none;
+        }
+        
+        /* ===== TARJETA DE CIUDAD ===== */
+        #citycard {
+            position: absolute;
+            bottom: 130px;
+            left: 14px;
+            z-index: 1100;
+            width: 260px;
+            background: rgba(13, 17, 26, .84);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            font-size: 12px;
+            overflow: hidden;
+        }
+        
+        /* ===== LEYENDA ===== */
+        #legend {
+            position: absolute;
+            bottom: 70px;
+            left: 14px;
+            z-index: 1100;
+            background: rgba(13, 17, 26, .72);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 10px;
+            font-size: 10px;
+        }
+        
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 1023px) {
+            #app {
+                grid-template-columns: 1fr;
+                grid-template-rows: 56px 1fr 80px;
+                grid-template-areas:
+                    "topbar"
+                    "map"
+                    "timeline";
+            }
+            #panel {
+                position: fixed;
+                top: 56px;
+                right: 0;
+                bottom: 80px;
+                width: min(310px, 88vw);
+                transform: translateX(110%);
+                transition: transform .25s ease;
+                border-left: 1px solid var(--border);
+            }
+            #panel.open {
+                transform: none;
+            }
+            #btn-layers {
+                display: flex !important;
+            }
+        }
+        
+        @media (max-width: 639px) {
+            #citycard:not(.open) .cc-body {
+                display: none;
+            }
+            #citycard {
+                bottom: 100px;
+                left: 10px;
+                width: 200px;
+            }
+            #legend {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <!-- TOPBAR -->
+    <header id="topbar">
+        <div class="brand">
+            <div class="brand-mark">SMN</div>
+            <div class="brand-text">
+                <strong>Servicio Meteorológico Nacional</strong>
+                <span>Mapa interactivo del tiempo · Argentina</span>
+            </div>
+        </div>
+        <div style="flex:1"></div>
+        <div class="chip" id="source-chip">
+            <span class="dot" style="background:var(--ok);"></span>
+            <span id="meta-text">Open-Meteo · 2026-08-13 18:00</span>
+        </div>
+        <button id="btn-layers" class="icon-btn" style="display:none;">☰ Capas</button>
+    </header>
+
+    <!-- MAPA -->
+    <div id="map-container">
+        <div id="map"></div>
+        <div id="readout">
+            <span id="ro-coords">—</span>
+            <span id="ro-value">—</span>
+        </div>
+        <div id="citycard">
+            <button id="cc-toggle">
+                <span class="cc-mini" id="cc-mini">Buenos Aires · 10°</span>
+                <span class="chev">▾</span>
+            </button>
+            <div class="cc-body">
+                <div class="cc-city" id="cc-city">Buenos Aires</div>
+                <div class="cc-temp" id="cc-temp">10°</div>
+                <div class="cc-desc" id="cc-desc">Cubierto</div>
+                <div class="cc-stats">
+                    <div><span>Viento</span><b id="cc-wind">—</b></div>
+                    <div><span>Humedad</span><b id="cc-hum">—</b></div>
+                    <div><span>Presión</span><b id="cc-pres">—</b></div>
+                    <div><span>Precip.</span><b id="cc-prob">—</b></div>
+                </div>
+                <div class="cc-days" id="cc-days"></div>
+            </div>
+        </div>
+        <div id="legend" hidden>
+            <span id="legend-title">Temperatura</span>
+            <div class="legend-bar" id="legend-bar"></div>
+            <div class="legend-range"><span id="legend-min"></span><span id="legend-max"></span></div>
+        </div>
+    </div>
+
+    <!-- PANEL DE CAPAS -->
+    <aside id="panel">
+        <div class="panel-head">
+            <strong>Capas</strong>
+            <button id="btn-panel-close">×</button>
+        </div>
+        
+        <section class="pg">
+            <h3>Mapa base</h3>
+            <div class="seg" id="base-seg">
+                <button class="seg-btn active" data-base="map">🗺️ Mapa</button>
+                <button class="seg-btn" data-base="sat">🛰️ Satélite</button>
+            </div>
+        </section>
+        
+        <section class="pg">
+            <h3>Capa de datos</h3>
+            <div class="layers" id="layers">
+                <button class="layer active" data-layer="temp">🌡️ Temperatura</button>
+                <button class="layer" data-layer="wind">💨 Viento</button>
+                <button class="layer" data-layer="cloud">☁️ Nubes</button>
+                <button class="layer" data-layer="precip">🌧️ Precipitación</button>
+                <button class="layer" data-layer="radar">📡 Radar</button>
+                <button class="layer" data-layer="hum">💧 Humedad</button>
+                <button class="layer" data-layer="pres">📊 Presión</button>
+                <!-- NUEVAS CAPAS SMN -->
+                <button class="layer" data-layer="aqi">🌍 Calidad del Aire</button>
+                <button class="layer" data-layer="storms">🌀 Tormentas</button>
+            </div>
+        </section>
+        
+        <section class="pg">
+            <h3>Alertas SMN</h3>
+            <div id="alerts-container">
+                <div class="alert-item" style="border-left: 4px solid var(--warn);">
+                    <span>⚠️ Lluvias intensas</span>
+                    <span style="font-size:10px;color:var(--muted)">Provincia de Buenos Aires</span>
+                </div>
+                <div class="alert-item" style="border-left: 4px solid var(--danger);">
+                    <span>🔴 Tormenta severa</span>
+                    <span style="font-size:10px;color:var(--muted)">Córdoba · Santa Fe</span>
+                </div>
+            </div>
+        </section>
+    </aside>
+
+    <!-- LÍNEA DE TIEMPO -->
+    <div id="timeline">
+        <button id="btn-play">▶</button>
+        <div id="tl-label">—</div>
+        <div id="tl-wrap">
+            <div id="tl-days"></div>
+            <div id="tl-track"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== SCRIPTS ===== -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+(function() {
+    'use strict';
+    
+    // ============================================================
+    //  CONFIGURACIÓN Y DATOS (desde data.json)
+    // ============================================================
+    const CONFIG = {
+        city: 'Buenos Aires',
+        lat: -34.6037,
+        lon: -58.3816,
+        updatedAt: '2026-08-13T18:00:00-03:00',
+        source: 'Open-Meteo · radar RainViewer',
+        days: [
+            {date: '08-13', tmax: 10, tmin: 7, prob: 76},
+            {date: '08-14', tmax: 13, tmin: 10, prob: 29},
+            {date: '08-15', tmax: 16, tmin: 12, prob: 63},
+            {date: '08-16', tmax: 18, tmin: 13, prob: 49},
+            {date: '08-17', tmax: 15, tmin: 10, prob: 37}
+        ],
+        // Datos horarios compactos (120 horas)
+        hourly: {
+            temp: [8,8,8,7,8,8,8,8,8,8,9,9,9,9,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,11,11,11,11,11,11,12,12,12,13,13,13,13,13,13,13,13,13,13,13,12,12,12,12,12,12,12,12,13,14,14,15,16,16,16,15,14,14,14,14,14,14,14,14,14,13,13,13,13,13,13,13,14,14,15,16,17,18,18,18,17,16,15,14,14,13,13,12,12,11,11,11,11,10,10,10,11,12,13,14,14,15,14,13,12,12,11,10,10,10],
+            hum: [79,80,79,79,77,77,76,77,78,77,78,79,80,78,76,74,75,77,79,79,80,82,85,87,84,83,88,90,92,90,87,87,87,86,86,85,83,82,80,78,82,81,84,85,86,86,85,84,84,86,87,88,90,90,91,91,91,89,88,86,86,82,79,81,82,86,89,91,92,92,93,94,96,96,97,98,98,98,99,98,98,98,97,95,91,84,77,70,70,71,75,80,84,87,89,90,91,94,95,96,95,94,93,93,92,90,87,83,78,72,66,63,63,65,68,72,77,80,82,81],
+            prob: [0,0,0,0,0,0,0,1,1,4,8,13,22,41,64,76,69,51,35,23,12,4,1,0,0,0,0,0,0,0,0,0,0,0,9,21,29,28,22,16,12,7,4,3,2,2,1,0,0,0,1,2,4,6,8,10,11,12,12,11,12,15,20,27,38,52,61,63,62,59,57,53,49,43,36,29,20,11,4,1,1,2,3,4,6,8,11,12,12,10,8,5,2,0,0,0,0,0,0,0,0,1,2,4,6,8,8,8,8,10,13,16,19,22,25,30,34,37,35,31],
+            wind: [15,14,14,12,12,12,12,12,13,14,12,11,12,16,18,15,15,12,9,10,11,10,10,10,10,9,9,11,11,12,14,15,14,13,13,13,11,11,11,11,10,12,12,14,13,13,13,13,12,12,13,13,12,12,12,12,11,12,12,11,10,10,11,11,10,11,10,10,11,13,10,12,5,6,5,7,4,4,2,6,5,7,6,7,8,11,12,12,10,9,10,10,9,8,8,10,10,11,8,12,13,14,15,16,17,18,19,20,20,19,18,18,19,20,21,21,20,20,20,19],
+            wdir: [137,139,140,149,149,155,153,160,161,141,140,143,137,117,113,114,115,117,125,123,127,123,120,103,95,100,121,119,107,98,91,89,89,85,79,78,91,92,97,94,109,109,110,102,100,101,93,87,85,88,88,88,89,87,90,96,94,87,81,74,91,105,100,99,103,110,117,115,100,85,83,93,106,134,167,161,57,197,210,201,229,205,210,196,197,190,184,180,175,175,180,183,166,147,148,143,123,138,82,139,142,144,145,148,151,152,150,147,143,137,129,125,127,132,136,136,136,136,136,138],
+            cloud: [100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,92,100,99,100,65,41,100,100,100,100,100,100,100,100,100,100,100,97,100,100,100,100,100,100,100,100,100,95,97,100,100,100,100,100,100,100,100,100,96,100,84,100,100,100,100,100,47,100,94,100,100,100,99,100,99,100,100,100,100,100,100,100,100,100,98,66,59,58,71,81,77,80,54,5,2,19,33,24,8,6,32,71,100,100,100,100,91,78,70,72,78,83,82,79,79,85,94],
+            pres: [1021,1021,1021,1021,1020,1020,1021,1022,1023,1023,1024,1024,1024,1024,1023,1024,1023,1023,1024,1024,1024,1024,1024,1024,1023,1023,1023,1023,1022,1022,1022,1022,1023,1023,1024,1024,1023,1023,1022,1021,1020,1020,1020,1020,1020,1020,1020,1020,1020,1020,1019,1018,1018,1017,1017,1017,1017,1017,1017,1017,1016,1015,1013,1012,1012,1011,1011,1011,1011,1011,1011,1011,1011,1011,1011,1010,1009,1009,1009,1009,1010,1010,1010,1010,1010,1010,1010,1010,1010,1010,1010,1011,1012,1013,1014,1014,1014,1014,1015,1014,1014,1015,1015,1016,1016,1016,1017,1017,1017,1017,1016,1016,1016,1017,1017,1018,1019,1019,1020,1020]
+        }
+    };
+    
+    // ============================================================
+    //  INICIALIZAR MAPA
+    // ============================================================
+    const map = L.map('map', {
+        zoomControl: false,
+        attributionControl: true,
+        minZoom: 2,
+        maxZoom: 10,
+        worldCopyJump: true
+    }).setView([-11.124, -30.841], 3);
+    
+    // Capas base
+    const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        subdomains: 'abcd',
+        maxZoom: 19,
+        attribution: '© OpenStreetMap · © CARTO'
+    });
+    const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Imágenes © Esri'
+    });
+    const labelsLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only/{z}/{x}/{y}{r}.png', {
+        subdomains: 'abcd',
+        maxZoom: 19
+    });
+    darkLayer.addTo(map);
+    
+    // ============================================================
+    //  PANEL DE CAPAS
+    // ============================================================
+    let activeLayer = 'temp';
+    let baseMap = 'map';
+    let opacity = 0.9;
+    
+    const layerMap = {
+        'temp': { label: 'Temperatura', icon: '🌡️' },
+        'wind': { label: 'Viento', icon: '💨' },
+        'cloud': { label: 'Nubes', icon: '☁️' },
+        'precip': { label: 'Precipitación', icon: '🌧️' },
+        'radar': { label: 'Radar', icon: '📡' },
+        'hum': { label: 'Humedad', icon: '💧' },
+        'pres': { label: 'Presión', icon: '📊' },
+        'aqi': { label: 'Calidad del Aire', icon: '🌍' },
+        'storms': { label: 'Tormentas', icon: '🌀' }
+    };
+    
+    // ============================================================
+    //  LÍNEA DE TIEMPO
+    // ============================================================
+    const DAYS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+    const STEPS = 40;
+    let currentStep = 18;
+    let isPlaying = false;
+    
+    function buildTimeline() {
+        const track = document.getElementById('tl-track');
+        const daysContainer = document.getElementById('tl-days');
+        track.innerHTML = '';
+        daysContainer.innerHTML = '';
+        
+        const daySpans = {};
+        const now = new Date();
+        const baseTime = now.getTime();
+        
+        for (let i = 0; i < STEPS; i++) {
+            const d = new Date(baseTime + i * 3 * 3600 * 1000);
+            const key = d.getDate() + '/' + (d.getMonth() + 1);
+            daySpans[key] = (daySpans[key] || 0) + 1;
+            
+            const tick = document.createElement('div');
+            tick.className = 'tick' + (i % 2 === 0 ? ' major' : '');
+            tick.dataset.time = String(d.getHours()).padStart(2, '0') + ':00';
+            tick.dataset.index = i;
+            if (i === 18) tick.classList.add('now');
+            tick.addEventListener('click', () => setTime(+tick.dataset.index));
+            track.appendChild(tick);
+        }
+        
+        // Días
+        Object.keys(daySpans).forEach(key => {
+            const [dd, mm] = key.split('/').map(Number);
+            const d = new Date();
+            d.setDate(dd);
+            d.setMonth(mm - 1);
+            const el = document.createElement('div');
+            el.style.flex = daySpans[key] + ' 1 0';
+            el.textContent = DAYS[d.getDay()] + ' ' + String(dd).padStart(2, '0');
+            daysContainer.appendChild(el);
+        });
+        
+        markTimeline();
+    }
+    
+    function markTimeline() {
+        const ticks = document.querySelectorAll('#tl-track .tick');
+        ticks.forEach((tick, i) => {
+            tick.classList.toggle('active', i === currentStep);
+        });
+        const d = new Date(Date.now() + currentStep * 3 * 3600 * 1000);
+        document.getElementById('tl-label').textContent = 
+            DAYS[d.getDay()] + ' ' + String(d.getDate()).padStart(2, '0') + ' · ' + 
+            String(d.getHours()).padStart(2, '0') + ':00';
+    }
+    
+    function setTime(index) {
+        currentStep = Math.max(0, Math.min(STEPS - 1, index));
+        markTimeline();
+        // Actualizar capas según el tiempo
+        updateLayers();
+    }
+    
+    function togglePlay() {
+        isPlaying = !isPlaying;
+        document.getElementById('btn-play').textContent = isPlaying ? '⏸' : '▶';
+        if (isPlaying) playLoop();
+    }
+    
+    function playLoop() {
+        if (!isPlaying) return;
+        currentStep = (currentStep + 1) % STEPS;
+        markTimeline();
+        updateLayers();
+        setTimeout(playLoop, 700);
+    }
+    
+    document.getElementById('btn-play').addEventListener('click', togglePlay);
+    
+    // ============================================================
+    //  FUNCIONES DE CAPAS (simulación con datos reales)
+    // ============================================================
+    function getValueAt(lat, lon, layer, step) {
+        // Usar datos de CONFIG.hourly como base
+        const idx = Math.min(Math.round(step), CONFIG.hourly.temp.length - 1);
+        
+        switch(layer) {
+            case 'temp': return CONFIG.hourly.temp[idx] || 10;
+            case 'wind': return CONFIG.hourly.wind[idx] || 10;
+            case 'hum': return CONFIG.hourly.hum[idx] || 70;
+            case 'pres': return CONFIG.hourly.pres[idx] || 1013;
+            case 'cloud': return CONFIG.hourly.cloud[idx] || 50;
+            case 'precip': return CONFIG.hourly.prob[idx] || 0;
+            default: return 0;
+        }
+    }
+    
+    function updateLayers() {
+        // Actualizar tarjeta de ciudad
+        const idx = Math.min(Math.round(currentStep), CONFIG.hourly.temp.length - 1);
+        const temp = CONFIG.hourly.temp[idx] || 10;
+        const hum = CONFIG.hourly.hum[idx] || 70;
+        const wind = CONFIG.hourly.wind[idx] || 10;
+        const prob = CONFIG.hourly.prob[idx] || 0;
+        const cloud = CONFIG.hourly.cloud[idx] || 50;
+        const pres = CONFIG.hourly.pres[idx] || 1013;
+        
+        document.getElementById('cc-temp').textContent = Math.round(temp) + '°';
+        document.getElementById('cc-mini').textContent = CONFIG.city + ' · ' + Math.round(temp) + '°';
+        document.getElementById('cc-hum').textContent = Math.round(hum) + '%';
+        document.getElementById('cc-wind').textContent = Math.round(wind) + ' km/h';
+        document.getElementById('cc-pres').textContent = Math.round(pres) + ' hPa';
+        document.getElementById('cc-prob').textContent = Math.round(prob) + '%';
+        
+        const desc = prob > 60 ? 'Lluvia probable' : cloud > 85 ? 'Cubierto' : cloud > 45 ? 'Nublado' : 'Despejado';
+        document.getElementById('cc-desc').textContent = desc + ' · sensación ' + Math.round(temp - Math.max(0, wind - 12) * 0.12) + '°';
+    }
+    
+    // ============================================================
+    //  TARJETA DE CIUDAD (días)
+    // ============================================================
+    function renderDays() {
+        const container = document.getElementById('cc-days');
+        container.innerHTML = '';
+        CONFIG.days.forEach((day, i) => {
+            const el = document.createElement('div');
+            el.className = 'day';
+            const d = new Date();
+            d.setDate(13 + i);
+            el.innerHTML = `
+                <div class="d-name">${DAYS[d.getDay()]}</div>
+                <div class="d-t">${day.tmax}<span>/${day.tmin}</span></div>
+                <div class="d-p">${day.prob}%</div>
+            `;
+            el.addEventListener('click', () => setTime(i * 8));
+            container.appendChild(el);
+        });
+    }
+    
+    // ============================================================
+    //  LEYENDA
+    // ============================================================
+    function updateLegend(layer) {
+        const legend = document.getElementById('legend');
+        const configs = {
+            'temp': { min: -5, max: 35, label: 'Temperatura', unit: '°C' },
+            'hum': { min: 10, max: 100, label: 'Humedad', unit: '%' },
+            'pres': { min: 980, max: 1045, label: 'Presión', unit: 'hPa' },
+            'precip': { min: 0, max: 9, label: 'Precipitación', unit: 'mm/h' },
+            'cloud': { min: 0, max: 100, label: 'Nubes', unit: '%' }
+        };
+        const cfg = configs[layer] || configs.temp;
+        document.getElementById('legend-title').textContent = cfg.label;
+        document.getElementById('legend-min').textContent = cfg.min + ' ' + cfg.unit;
+        document.getElementById('legend-max').textContent = cfg.max + ' ' + cfg.unit;
+        legend.hidden = false;
+    }
+    
+    // ============================================================
+    //  EVENTOS UI
+    // ============================================================
+    // Selector de capas
+    document.querySelectorAll('.layer').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.layer').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            activeLayer = this.dataset.layer;
+            updateLegend(activeLayer);
+            // Actualizar descripción
+            const meta = document.getElementById('layer-meta') || document.createElement('p');
+            meta.id = 'layer-meta';
+            meta.className = 'layer-meta';
+            meta.innerHTML = 'Capa <b>' + activeLayer + '</b> · datos en vivo desde Open-Meteo';
+            document.querySelector('.pg:last-child').appendChild(meta);
+        });
+    });
+    
+    // Base de mapa
+    document.querySelectorAll('.seg-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            baseMap = this.dataset.base;
+            if (baseMap === 'sat') {
+                satLayer.addTo(map);
+                labelsLayer.addTo(map);
+                darkLayer.remove();
+            } else {
+                darkLayer.addTo(map);
+                labelsLayer.remove();
+                satLayer.remove();
+            }
+        });
+    });
+    
+    // Toggle de tarjeta
+    document.getElementById('cc-toggle').addEventListener('click', function() {
+        document.getElementById('citycard').classList.toggle('open');
+    });
+    
+    // Panel de capas (mobile)
+    document.getElementById('btn-layers').addEventListener('click', function() {
+        document.getElementById('panel').classList.toggle('open');
+    });
+    document.getElementById('btn-panel-close').addEventListener('click', function() {
+        document.getElementById('panel').classList.remove('open');
+    });
+    
+    // ============================================================
+    //  READOUT (coordenadas)
+    // ============================================================
+    map.on('mousemove', function(e) {
+        const lat = e.latlng.lat.toFixed(2);
+        const lng = e.latlng.lng.toFixed(2);
+        document.getElementById('ro-coords').textContent = lat + '°, ' + lng + '°';
+        const value = getValueAt(e.latlng.lat, e.latlng.lng, activeLayer, currentStep);
+        document.getElementById('ro-value').textContent = value + 
+            (activeLayer === 'temp' ? '°C' : 
+             activeLayer === 'hum' ? '%' : 
+             activeLayer === 'pres' ? ' hPa' : 
+             activeLayer === 'wind' ? ' km/h' : 
+             activeLayer === 'precip' ? ' mm/h' : '');
+    });
+    
+    // ============================================================
+    //  INICIALIZACIÓN
+    // ============================================================
+    function init() {
+        buildTimeline();
+        renderDays();
+        updateLayers();
+        updateLegend('temp');
+        
+        // Agregar marcador de ciudad
+        L.marker([CONFIG.lat, CONFIG.lon]).addTo(map)
+            .bindPopup('<b>' + CONFIG.city + '</b><br>Argentina')
+            .openPopup();
+        
+        // Actualizar fuente
+        document.getElementById('meta-text').textContent = 
+            CONFIG.source + ' · ' + CONFIG.updatedAt.replace('T', ' ').replace('+00', '');
+        
+        console.log('✅ SMN Mapa interactivo cargado');
+    }
+    
+    init();
+})();
+</script>
+</body>
+</html>
