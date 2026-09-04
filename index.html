@@ -920,7 +920,7 @@ function stormInfluence(lat,lon){
 /* Viento de alta resolución (GFS 0.25° real, vía pipeline GitHub Actions → JSON
    estático, ver scripts/fetch_wind_grib.py). Vacío por defecto: hasta que se
    publique, la app sigue usando la grilla de puntos de Open-Meteo de siempre. */
-const WIND_JSON_URL='';
+const WIND_JSON_URL='https://germanfuel1234-png.github.io/pagina-Meteorologico-argentino/wind-latest.json';
 let HIRES_WIND=null;
 async function loadHiResWind(){
   if(!WIND_JSON_URL)return;
