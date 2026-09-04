@@ -683,8 +683,8 @@ input[type=range]{flex:1;accent-color:var(--accent)}
     </section>
     <section class="pg">
       <h3>Clave Windy API</h3>
-      <div class="key-row"><input type="password" id="windy-key" data-od-id="windy-key" placeholder="wx_… (opcional)" autocomplete="off" spellcheck="false" aria-label="Clave de API de Windy"><button class="btn-mini" id="windy-key-save" data-od-id="windy-key-save">Guardar</button></div>
-      <p class="pg-note">Con clave: pronóstico horario de <b>Windy Point Forecast</b> (GFS/ECMWF/ICON, con rachas y avisos), pines dinámicos de webcams por zona visible y timelapses en el timeline. Sin clave: Open-Meteo, catálogo y vistas públicas de cámaras. Solo se guarda en tu navegador.</p>
+      <div class="key-row"><input type="password" id="windy-key" data-od-id="windy-key" placeholder="Usando la clave del sitio (opcional: pegá la tuya)" autocomplete="off" spellcheck="false" aria-label="Clave de API de Windy"><button class="btn-mini" id="windy-key-save" data-od-id="windy-key-save">Guardar</button></div>
+      <p class="pg-note">El sitio ya usa una clave propia para <b>Windy Point Forecast</b> (GFS/ECMWF/ICON, con rachas y avisos), pines dinámicos de webcams por zona visible y timelapses en el timeline. Si pegás tu propia clave acá, se prioriza la tuya (se guarda solo en tu navegador).</p>
     </section>
     <p class="layer-meta" id="layer-meta" data-od-id="layer-meta">Temperatura anclada al pronóstico de <b>Buenos Aires</b>.</p>
   </aside>
@@ -2719,7 +2719,11 @@ const WBC=(()=>{
     full:'https://images.windy.com/cameras/current/'+w.id+'/960x540',
     page:'https://www.windy.com/webcams/'+w.id}));
 })();
-function windyKey(){try{return (localStorage.getItem('windyKey')||'').trim();}catch(e){return '';}}
+/* Clave por defecto del sitio (dominio restringido en el panel de Windy a
+   germanfuel1234-png.github.io) · cualquier visitante puede pisarla con la
+   suya propia desde "Capas → Clave Windy API", que se guarda solo en su navegador. */
+const WINDY_API_KEY_DEFAULT='4S9YhKVf5o0I43XwxjVJiqThnUClKh4Y';
+function windyKey(){try{return (localStorage.getItem('windyKey')||'').trim()||WINDY_API_KEY_DEFAULT;}catch(e){return WINDY_API_KEY_DEFAULT;}}
 let WBC_LIVE=null,camsTimer=null;
 function mapApiCam(c){
   if(!c||!c.location)return null;
