@@ -93,7 +93,9 @@ def main():
         sys.exit(1)
 
     lats = u.latitude.values[::STRIDE]
-    lons = u.longitude.values[::STRIDE]
+    # GRIB/GFS publica longitudes en convención 0-360°; el frontend usa -180..180
+    # (ej. Buenos Aires es -58.38, no 301.62), así que se convierten acá.
+    lons = ((u.longitude.values[::STRIDE] + 180) % 360) - 180
     uu = u.values[::STRIDE, ::STRIDE]
     vv = v.values[::STRIDE, ::STRIDE]
 
