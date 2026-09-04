@@ -1,6 +1,12 @@
 name: Actualizar datos de viento (GFS)
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'scripts/**'
+      - '.github/workflows/wind-data.yml'
   schedule:
     # ~4.5h después de cada ciclo GFS (00/06/12/18Z), para dar tiempo a que NOMADS lo publique
     - cron: '30 4,10,16,22 * * *'
