@@ -979,6 +979,8 @@ function fieldWind(lat,lon,ihh){
   return[u,v];
 }
 function fieldPrecip(lat,lon,ihh){
+  const gp=gridVal(lat,lon,'precip',ihh);
+  if(gp!=null)return clamp(gp,0,20);
   const g=gridVal(lat,lon,'prob',ihh);
   if(g!=null)return clamp(g/100*3,0,9);
   const days=ihh/24;
@@ -1080,7 +1082,7 @@ async function fetchGrid(){
     const l=levelCfg();
     GRID.pts=j.map(p=>{const h=p.hourly||{};
       const at=(k,i)=>{const a=h[k];return(a&&a[i]!=null)?a[i]:null;};
-      return{lat:p.latitude,lon:p.longitude,temp:h[l.temp],hum:h[l.hum],prob:h.precipitation_probability,
+      return{lat:p.latitude,lon:p.longitude,temp:h[l.temp],hum:h[l.hum],prob:h.precipitation_probability,precip:h.precipitation,
              cloud:h.cloud_cover,spd:h[l.wind],dir:h[l.wdir],uv:h.uv_index,cape:h.cape,
              pres:l.presVal!=null?(h.time?h.time.map(()=>l.presVal):[]):h[l.pres]};});
     GRID.cols=sp.cols;GRID.rows=sp.rows;
@@ -1138,7 +1140,7 @@ function valGrid(G,lat,lon,name,ihh){
 function gridVal(lat,lon,name,ihh){return valGrid(GRID,lat,lon,name,ihh)}
 const CM={
   temp:[[0,'#1a237e'],[0.25,'#42a5f5'],[0.5,'#66bb6a'],[0.75,'#ffca28'],[1,'#e53935']],
-  hum:[[0,'#0d1b2a'],[0.3,'#1b263b'],[0.6,'#415a77'],[0.8,'#778da9'],[1,'#e0e1dd']],
+  hum:[[0,'#7a4a1e'],[0.3,'#c98f3a'],[0.55,'#4fae7a'],[0.8,'#2f9bd6'],[1,'#bfeaff']],
   pres:[[0,'#5a3a9a'],[0.4,'#8a68c8'],[0.7,'#b8b0e0'],[1,'#e8ecf8']],
   precip:[[0,'rgba(0,0,0,0)'],[0.3,'#1a5fa0'],[0.55,'#2890c0'],[0.7,'#4fc0a0'],[0.85,'#e0c030'],[1,'#e04020']],
   waves:[[0,'#081a3a'],[0.25,'#1a4f9c'],[0.45,'#3aa0c8'],[0.65,'#70d0e0'],[0.85,'#b8ecf0'],[1,'#ffffff']],
@@ -1320,7 +1322,7 @@ function drawRaster(){
      (porque multiplica por el brillo del mapa base, que es oscuro). Se compensa
      subiendo el piso de alpha. */
   const HL_BOOST=2.15;
-  const baseAlphaRaw=layer==='precip'?0.55:layer==='cloud'?0.6:layer==='waves'?0.5:layer==='aqi'?0.45:0.4;
+  const baseAlphaRaw=layer==='precip'?0.55:layer==='cloud'?0.68:layer==='waves'?0.56:layer==='aqi'?0.45:0.4;
   /* Vista global (zoom bajo) = capa más sutil, como un "velo"; zoom alto = full opacidad,
      igual que hace Windy cuando te acercás. */
   const zoomFactor=clamp((map.getZoom()-2)/5,0.5,1);
@@ -1350,7 +1352,12 @@ function drawRaster(){
         }
         v=clamp(pv/10,0,1);col=cmap(CM.precip,v);
       }
-      else if(layer==='cloud'){const c=fieldCloud(la,lo,ihh);if(c<=0.04)continue;data[o]=255;data[o+1]=255;data[o+2]=255;data[o+3]=Math.round(255*alpha*c);continue;}
+      else if(layer==='cloud'){
+        const c=fieldCloud(la,lo,ihh);if(c<=0.04)continue;
+        data[o]=Math.round(lerp(150,255,c));data[o+1]=Math.round(lerp(168,255,c));data[o+2]=Math.round(lerp(194,255,c));
+        data[o+3]=Math.round(255*alpha*Math.pow(c,0.7));
+        continue;
+      }
       else if(layer==='waves'){const wv=fieldWaves(la,lo,ihh);v=clamp(wv.h/6,0,1);col=cmap(CM.waves,v);}
       else if(layer==='aqi'){v=clamp(fieldAQI(la,lo,ihh)/300,0,1);col=cmap(CM.aqi,v);}
       else if(layer==='uv'){v=clamp(fieldUV(la,lo,ihh)/14,0,1);col=cmap(CM.uv,v);}
@@ -1364,22 +1371,23 @@ function drawRaster(){
   if(layer==='waves')drawWaveArrows(ctx,w,h,ihh,baseAlpha*STATE.opacity);
 }
 function drawWaveArrows(ctx,w,h,ihh,alpha){
-  ctx.lineWidth=1;
+  ctx.lineWidth=1.4;
+  ctx.lineCap='round';
   const sp=70;
   for(let x=sp/2;x<w;x+=sp){
     for(let y=sp/2;y<h;y+=sp){
       const ll=map.containerPointToLatLng(L.point(x,y));
       const wv=fieldWaves(ll.lat,ll.lng,ihh);
       const a=wv.dir*Math.PI/180+Math.PI;
-      const len=4+Math.min(10,wv.h*2.2);
+      const len=5+Math.min(12,wv.h*2.6);
       const ex=x+Math.cos(a)*len,ey=y+Math.sin(a)*len;
-      ctx.strokeStyle='rgba(215,240,255,'+(0.55*Math.max(0.25,alpha)).toFixed(3)+')';
-      ctx.fillStyle='rgba(215,240,255,0.9)';
+      ctx.strokeStyle='rgba(225,246,255,'+(0.62*Math.max(0.3,alpha)).toFixed(3)+')';
+      ctx.fillStyle='rgba(225,246,255,0.95)';
       ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(ex,ey);ctx.stroke();
       ctx.beginPath();
       ctx.moveTo(ex,ey);
-      ctx.lineTo(ex-Math.cos(a-0.4)*3.5,ey-Math.sin(a-0.4)*3.5);
-      ctx.lineTo(ex-Math.cos(a+0.4)*3.5,ey-Math.sin(a+0.4)*3.5);
+      ctx.lineTo(ex-Math.cos(a-0.4)*4.2,ey-Math.sin(a-0.4)*4.2);
+      ctx.lineTo(ex-Math.cos(a+0.4)*4.2,ey-Math.sin(a+0.4)*4.2);
       ctx.closePath();ctx.fill();
     }
   }
