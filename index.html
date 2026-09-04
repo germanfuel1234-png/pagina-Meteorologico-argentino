@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>SMN · Mapa interactivo del tiempo</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
 <style>
 :root{
   --bg:      oklch(0.14 0.02 255);
@@ -17,8 +20,8 @@
   --warn:    oklch(0.75 0.16 75);
   --danger:  oklch(0.62 0.20 25);
   --ok:      oklch(0.70 0.14 150);
-  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --font-mono: ui-monospace, 'JetBrains Mono', 'IBM Plex Mono', Menlo, monospace;
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'IBM Plex Mono', Menlo, monospace;
   /* Tokens de vidrio: mismo blur/superficie en todos los paneles flotantes,
      con un "filo de luz" arriba que es lo que de verdad vende el glassmorphism
      (no solo el blur). */
@@ -33,7 +36,7 @@
 *{box-sizing:border-box}
 html,body{height:100%}
 body{margin:0;font-family:var(--font-ui);background:#0b0e15;color:var(--fg);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
-#app{position:relative;height:100vh;min-height:560px}
+#app{position:relative;height:74vh;min-height:520px;max-height:760px;border-radius:var(--r-lg);overflow:hidden;border:1px solid var(--border);box-shadow:var(--glass-shadow)}
 #map{position:absolute;inset:0;background:#0a0d14;z-index:0}
 
 /* --- Cabecera de sitio (fuera del mapa) --- */
@@ -482,7 +485,7 @@ input[type=range]{flex:1;accent-color:var(--accent)}
     <nav id="site-nav" aria-label="Secciones de la página">
       <a href="#sec-forecast">Pronóstico 5 días</a>
       <a href="#app">Mapa interactivo</a>
-      <a href="#sec-radar">Radar</a>
+      <a href="#sec-radar">Reporte detallado</a>
     </nav>
   </div>
 </header>
@@ -497,6 +500,12 @@ input[type=range]{flex:1;accent-color:var(--accent)}
   </div>
 </section>
 
+<section id="sec-map" class="section-block" aria-label="Mapa interactivo del tiempo">
+  <div class="sec-inner">
+    <div class="sec-head">
+      <h2>Mapa interactivo del tiempo</h2>
+      <p>Temperatura, viento, precipitación y más capas · clickeá cualquier punto para el reporte detallado</p>
+    </div>
 <div id="app">
   <header id="topbar" data-od-id="topbar">
     <div class="brand" data-od-id="brand">
@@ -731,6 +740,8 @@ input[type=range]{flex:1;accent-color:var(--accent)}
 
   <div id="toast" role="status" aria-live="polite" hidden></div>
 </div>
+  </div>
+</section>
 
 <section id="sec-radar" class="section-block" aria-label="Pronóstico detallado por punto">
   <div class="sec-inner">
