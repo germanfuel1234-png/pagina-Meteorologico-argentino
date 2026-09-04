@@ -384,11 +384,16 @@ input[type=range]{flex:1;accent-color:var(--accent)}
 /* --- Cámaras en vivo --- */
 .wbc-pin{background:none;border:none}
 .wbc-pin .wbc-dot{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.92);background:var(--accent);box-shadow:0 0 0 3px rgba(90,160,255,.28),0 2px 6px rgba(0,0,0,.5);cursor:pointer}
+/* Thumbnail flotante siempre visible sobre el mapa, estilo Windy (en vez de
+   un punto que solo muestra la imagen al pasar el mouse). */
+.wbc-thumb-card{width:64px;height:40px;border-radius:7px;overflow:hidden;border:1.5px solid rgba(255,255,255,.8);box-shadow:0 3px 12px rgba(0,0,0,.55);cursor:pointer;position:relative;background:#0b0e15;transition:transform .12s,box-shadow .12s}
+.wbc-thumb-card:hover{transform:scale(1.12);box-shadow:0 6px 18px rgba(0,0,0,.65);z-index:1000!important}
+.wbc-thumb-card img{width:100%;height:100%;object-fit:cover;display:block}
+.wbc-thumb-card .wbc-live-dot{position:absolute;top:3px;left:3px;width:6px;height:6px;border-radius:50%;background:#ff3b3b;box-shadow:0 0 5px #ff3b3b}
+.wbc-thumb-card .wbc-tile{width:100%!important;height:100%!important;border:none;border-radius:0}
+.wbc-thumb-card .wbc-tile svg{width:16px;height:16px}
+.wbc-thumb-card .wbc-tile span{display:none}
 .wbc-cluster{background:var(--navy);border:1.5px solid rgba(160,190,255,.6);color:#e8f0ff;font-family:var(--font-mono);font-size:11px;font-weight:700;border-radius:999px;display:grid;place-items:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.45)}
-.wbc-tip{background:#10141f;border:1px solid var(--border);border-radius:10px;padding:8px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
-.wbc-tip .wbc-lazy{display:block;width:180px;height:101px;object-fit:cover;border-radius:6px;background:#0b0e15}
-.wbc-tip .t-name{font-size:11px;font-weight:600;margin-top:6px;color:var(--fg);white-space:nowrap}
-.wbc-tip .t-city{font-size:9.5px;color:var(--muted);font-family:var(--font-mono);white-space:nowrap}
 .wbc-tile{display:grid;place-items:center;align-content:center;gap:5px;color:var(--muted);border:1px solid var(--border);border-radius:6px;background:linear-gradient(180deg,#121a2b,#0b0e15);font-family:var(--font-ui)}
 .wbc-tile svg{opacity:.55}
 .wbc-tile span{font-size:8.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
@@ -648,8 +653,8 @@ input[type=range]{flex:1;accent-color:var(--accent)}
     <div class="layer-thumb"></div>
   </button>
   <button class="layer" data-layer="cape" role="button" tabindex="0" aria-pressed="false">
-    <span class="layer-icon"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M5 12.6a3 3 0 1 1 .55-5.95A3.5 3.5 0 0 1 12 8.1a2.5 2.5 0 0 1-.5 4.9H5Z"/><path d="M8.6 9.4 6.8 12.2h2l-1.4 2.4"/></svg></span>
-    <span class="layer-name">Riesgo de tormenta</span>
+    <span class="layer-icon"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M5 11.6a3 3 0 1 1 .55-5.95A3.5 3.5 0 0 1 12 7.1a2.5 2.5 0 0 1-.5 4.9H5Z"/><path d="M9.4 8.2 6.8 11.8h2.1L7 15" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    <span class="layer-name">Riesgo de tormenta eléctrica</span>
     <div class="layer-thumb"></div>
   </button>
 </div>
@@ -1209,7 +1214,7 @@ const LGDOM={
   waves:[0,6,'Olas','m'],
   aqi:[0,300,'Calidad del aire','AQI'],
   uv:[0,14,'Índice UV',''],
-  cape:[0,4000,'Riesgo de tormenta (CAPE)','J/kg']
+  cape:[0,4000,'Riesgo de tormenta eléctrica (CAPE)','J/kg']
 };
 
 /* Mascara tierra/oceano (Natural Earth 50m, rasterizada a grilla de 1 grado, 360x180).
@@ -1308,7 +1313,7 @@ function layerVal(lat,lon){
     case 'waves':{const w=fieldWaves(lat,lon,t);main={label:'Olas',txt:w.h.toFixed(1)+' m · '+Math.round(w.dir)+'°'};break;}
     case 'aqi':main={label:'Calidad del aire',txt:Math.round(fieldAQI(lat,lon,t))+' AQI'};break;
     case 'uv':main={label:'Índice UV',txt:fieldUV(lat,lon,t).toFixed(1)};break;
-    case 'cape':main={label:'CAPE',txt:Math.round(fieldCAPE(lat,lon,t))+' J/kg'};break;
+    case 'cape':main={label:'Riesgo de tormenta',txt:Math.round(fieldCAPE(lat,lon,t))+' J/kg (CAPE)'};break;
     case 'ir':main={label:'Temperatura de brillo',txt:'GOES-East · IR canal 13 (10.3 μm)'};break;
     case 'cams':{const w=nearestCam(lat,lon);main={label:'Cámara',txt:w?w.name+' · '+w.city:'sin cámaras cercanas'};break;}
     case 'radar':main={label:'Radar',txt:'reflectividad'};break;
@@ -2375,7 +2380,7 @@ function applyLayer(){
     waves:'Altura y dirección del oleaje · <b>Open-Meteo Marine (WW3)</b>.',
     aqi:'Calidad del aire (índice US AQI) · <b>Open-Meteo Air Quality (CAMS)</b>.',
     uv:'Índice UV máximo horario · protegerse a partir de 6 (alto).',
-    cape:'CAPE (energía potencial convectiva) · a mayor valor, mayor riesgo de tormentas fuertes.',
+    cape:'Riesgo de tormenta eléctrica (CAPE, energía potencial convectiva) · <b>no son rayos en vivo</b>, es la probabilidad de que se formen tormentas fuertes.',
     radar:'Radar de precipitación <b>RainViewer</b> · frame cercano al instante seleccionado.',
     cams:'Cámaras en vivo de <b>Windy</b> · agrupadas por zoom, vista previa al pasar el cursor. Los fotogramas en vivo expiran a los 10 min.',
     airports:'Aeropuertos de <b>Argentina</b> · código IATA y nombre. Clic para abrir el pronóstico detallado.',
@@ -2417,7 +2422,7 @@ const LAYER_INFO={
   waves:'Oleaje · altura significativa y dirección, modelo WW3 (Open-Meteo Marine).',
   aqi:'Calidad del aire · índice US AQI (CAMS/Open-Meteo). 0–50 bueno · 150+ insalubre.',
   uv:'Índice UV horario. 0-2 bajo · 3-5 moderado · 6-7 alto · 8-10 muy alto · 11+ extremo.',
-  cape:'CAPE (J/kg) · energía disponible para tormentas convectivas. &gt;1500 indica riesgo de tormentas severas.',
+  cape:'Riesgo de tormenta eléctrica, no rayos en tiempo real (no existe una fuente gratuita confiable para eso). Se estima con CAPE (J/kg): energía disponible para tormentas convectivas. &gt;1500 indica riesgo de tormentas severas.',
   ir:'Satélite infrarrojo GOES-East (banda 13, 10.3 μm) en tiempo real · blancos = cimas de nubes muy frías (convección profunda).',
   cams:'Cámaras en vivo de Windy · agrupadas por zoom; las imágenes expiran a los 10 min. Con tu clave API se refrescan cada 5 min.',
   airports:'Aeropuertos principales de Argentina con su código IATA. Clic en un punto para abrir el pronóstico detallado del lugar.'
@@ -2875,21 +2880,18 @@ function renderAirports(){
 function camTile(w,h){const d=document.createElement('div');d.className='wbc-tile';d.style.width=w+'px';d.style.height=h+'px';
   d.innerHTML='<svg viewBox="0 0 16 16" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="2" y="4" width="12" height="8" rx="1.6"/><path d="M6 4l.8-1.4h2.4L10 4"/><circle cx="8" cy="8" r="2.1"/></svg>';
   const s=document.createElement('span');s.textContent='Señal en vivo';d.appendChild(s);return d;}
-function camTipHtml(w){
-  return '<div class="wbc-tip"><img class="wbc-lazy" alt="" data-src="'+w.thumb+'"><div class="t-name">'+escA(w.name)+'</div><div class="t-city">'+escA(w.city)+' · '+escA(w.region)+'</div></div>';}
-function wireTip(tip){
-  const img=tip.querySelector('.wbc-lazy');if(!img)return;
-  img.addEventListener('error',()=>{if(img.parentNode)img.replaceWith(camTile(180,101));},{once:true});
-  img.src=img.getAttribute('data-src');
-}
 function addPin(w){
-  const ic=L.divIcon({className:'wbc-pin',html:'<span class="wbc-dot"></span>',iconSize:[16,16],iconAnchor:[8,8]});
-  const m=L.marker([w.lat,w.lon],{icon:ic}).addTo(camGroup);
-  m.bindTooltip(camTipHtml(w),{direction:'top',offset:[0,-10],className:'wbc-tip-wrap',sticky:false});
-  m.on('tooltipopen',e=>wireTip(e.tooltip.getElement()));
-  m.on('mouseover',()=>m.openTooltip());
-  m.on('mouseout',()=>m.closeTooltip());
+  const html='<div class="wbc-thumb-card"><span class="wbc-live-dot"></span><img class="wbc-pin-img" src="'+escA(w.thumb)+'" alt="" loading="lazy"></div>';
+  const ic=L.divIcon({className:'wbc-pin',html,iconSize:[64,40],iconAnchor:[32,20]});
+  const m=L.marker([w.lat,w.lon],{icon:ic});
+  m.bindTooltip(escA(w.name)+' · '+escA(w.city),{direction:'top',offset:[0,-24]});
+  m.on('add',()=>{
+    const el=m.getElement();if(!el)return;
+    const img=el.querySelector('.wbc-pin-img');
+    if(img)img.addEventListener('error',()=>{img.replaceWith(camTile(64,40));},{once:true});
+  });
   m.on('click',()=>openCam(w));
+  m.addTo(camGroup);
 }
 function renderCams(){
   if(!camGroup)camGroup=L.layerGroup();
