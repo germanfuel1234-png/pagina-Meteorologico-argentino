@@ -260,7 +260,7 @@ input[type=range]{flex:1;accent-color:var(--accent)}
 
 /* --- Popup de pronóstico (sparkline 5 días) --- */
 .spk-pop .leaflet-popup-content-wrapper{background:rgba(13,17,26,.96);color:var(--fg);border:1px solid var(--border);border-radius:12px;backdrop-filter:blur(10px)}
-.spk-pop .leaflet-popup-content{margin:12px 14px;width:250px!important;font-family:var(--font-ui)}
+.spk-pop .leaflet-popup-content{margin:12px 14px;width:200px!important;font-family:var(--font-ui)}
 .spk-pop .leaflet-popup-tip{background:rgba(13,17,26,.96);border:1px solid var(--border)}
 .spk-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
 .spk-head b{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -274,7 +274,7 @@ input[type=range]{flex:1;accent-color:var(--accent)}
 .spk-stats{display:flex;justify-content:space-between;margin-top:8px;font-family:var(--font-mono);font-size:10.5px;color:var(--muted);gap:8px}
 .spk-stats b{color:var(--fg);font-weight:600}
 .spk-none{font-size:11px;color:var(--muted);padding:14px 0;text-align:center}
-.spk-now{display:flex;align-items:center;gap:12px;margin:2px 0 10px;padding-bottom:9px;border-bottom:1px solid rgba(255,255,255,.08)}
+.spk-now{display:flex;align-items:center;gap:12px;margin:2px 0 0}
 .spk-now .sn-temp{font-family:var(--font-mono);font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1}
 .spk-now .sn-meta{display:flex;flex-direction:column;gap:2px;font-family:var(--font-mono);font-size:10px;color:var(--muted)}
 .spk-now .sn-meta span:first-child{color:var(--fg)}
@@ -1990,44 +1990,10 @@ function openAirport(a){
 function sparkHtml(h,title,loc){
   if(!h||!h.time||!h.time.length)return '<div class="spk-none">Sin datos de pronóstico para este punto.</div>';
   const t0Idx=STATE.t0Index||0;
-  let now='';
-  if(h.temp[t0Idx]!=null){
-    const tv=h.temp[t0Idx],wv=h.wind[t0Idx],hm=h.hum[t0Idx];
-    now='<div class="spk-now"><div class="sn-temp">'+Math.round(tv)+'°</div><div class="sn-meta"><span>Viento '+Math.round(wv||0)+' km/h</span><span>Humedad '+Math.round(hm||0)+'%</span></div></div>';
-  }
-  const dayTick={};
-  for(let i=0;i<h.time.length;i++){
-    const d=Date.parse(h.time[i]+':00');
-    if(!Number.isFinite(d))continue;
-    const ds=new Date(d).toDateString();
-    if(dayTick[ds]==null)dayTick[ds]=i;
-  }
-  const keys=Object.keys(dayTick).sort((a,b)=>dayTick[a]-dayTick[b]).slice(0,5);
-  const W=250,H=46,pad=4,iw=W-2*pad,ih=H-2*pad;
-  let out='<div class="spk-head"><b>'+escA(title)+'</b><span class="spk-loc">'+escA(loc)+'</span></div>'+now;
-  for(const ds of keys){
-    const i0=dayTick[ds],i1=Math.min(h.time.length-1,i0+23);
-    let t0=null,t1=null,pmax=0,pr=0,wmax=0;
-    for(let i=i0;i<=i1;i++){
-      const tv=h.temp[i];if(tv==null)continue;
-      if(t0==null){t0=tv;t1=tv;}else{t0=Math.min(t0,tv);t1=Math.max(t1,tv);}
-      pmax=Math.max(pmax,h.prob[i]||0);pr=Math.max(pr,h.precip[i]||0);wmax=Math.max(wmax,h.wind[i]||0);
-    }
-    if(t0==null)continue;
-    const span=t1-t0||1;
-    const X=i=>pad+((i-i0)/((i1-i0)||1))*iw;
-    const Y=i=>H-pad-((h.temp[i]-t0)/span)*ih;
-    let line='',fill='';
-    for(let i=i0;i<=i1;i++){
-      if(h.temp[i]==null)continue;
-      const pt=X(i).toFixed(1)+','+Y(i).toFixed(1);
-      line+=(line?' ':'')+pt;fill+=(fill?' ':'')+pt;
-    }
-    const lab=new Date(Date.parse(h.time[i0]+':00')).toLocaleDateString('es-AR',{weekday:'short',day:'numeric',month:'short'});
-    out+='<div class="spk-title"><b>'+lab+'</b><span style="float:right;color:var(--fg)">'+t0.toFixed(0)+'° / '+t1.toFixed(0)+'°</span></div>';
-    out+='<svg class="spk-svg" viewBox="0 0 '+W+' '+H+'"><polyline class="spk-fill" points="'+X(i0).toFixed(1)+','+(H-pad)+' '+fill+' '+X(i1).toFixed(1)+','+(H-pad)+'"></polyline><polyline class="spk-line" points="'+line+'"></polyline></svg>';
-  }
-  return out||'<div class="spk-none">Sin datos de pronóstico para este punto.</div>';
+  if(h.temp[t0Idx]==null)return '<div class="spk-none">Sin datos de pronóstico para este punto.</div>';
+  const tv=h.temp[t0Idx],wv=h.wind[t0Idx],hm=h.hum[t0Idx];
+  const now='<div class="spk-now"><div class="sn-temp">'+Math.round(tv)+'°</div><div class="sn-meta"><span>Viento '+Math.round(wv||0)+' km/h</span><span>Humedad '+Math.round(hm||0)+'%</span></div></div>';
+  return '<div class="spk-head"><b>'+escA(title)+'</b><span class="spk-loc">'+escA(loc)+'</span></div>'+now;
 }
 function feelsLike(T,V){
   if(T==null||V==null)return null;
