@@ -69,13 +69,29 @@ body{margin:0;font-family:var(--font-ui);background:#0b0e15;color:var(--fg);font
 @media (max-width:900px){.biz-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:560px){.biz-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
-/* --- Sección 3: radar --- */
-.radar-map{position:relative;height:62vh;min-height:380px;border-radius:var(--r-lg);overflow:hidden;border:1px solid var(--border);background:#0a0d14}
-.radar-controls{display:flex;align-items:center;gap:12px;margin-top:14px;flex-wrap:wrap}
-.radar-time{font-family:var(--font-mono);font-size:12px;color:#dfe7f7;min-width:64px}
-#radar-scrub{flex:1;min-width:140px;accent-color:var(--accent)}
-.radar-note{margin-top:10px;font-size:11px;color:var(--muted);line-height:1.5}
-.radar-note b{color:#9fb0cc}
+/* --- Sección 3: pronóstico detallado (estilo Windguru, con nuestros colores) --- */
+.wg-empty{padding:34px 10px;text-align:center;color:var(--muted);font-size:12.5px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--r-lg)}
+.wg-card{background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--r-lg);box-shadow:var(--glass-shadow);overflow:hidden}
+.wg-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:6px;padding:14px 16px;border-bottom:1px solid var(--glass-border)}
+.wg-head b{font-size:14px;font-weight:600;letter-spacing:-.01em}
+.wg-head span{font-size:11px;color:var(--muted);font-family:var(--font-mono)}
+.wg-scroll{overflow-x:auto;scrollbar-width:thin;scrollbar-color:rgba(120,140,180,.35) transparent}
+.wg-scroll::-webkit-scrollbar{height:6px}
+.wg-scroll::-webkit-scrollbar-thumb{background:rgba(120,140,180,.35);border-radius:99px}
+.wg-table{border-collapse:collapse;font-family:var(--font-mono);font-size:11px;white-space:nowrap}
+.wg-table th,.wg-table td{padding:5px 7px;text-align:center;border-bottom:1px solid rgba(255,255,255,.05)}
+.wg-table thead th{font-family:var(--font-ui);font-weight:600;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--glass-border)}
+.wg-table .wg-daysep{border-left:1px solid rgba(255,255,255,.14)}
+.wg-table .wg-rowlabel{position:sticky;left:0;z-index:2;text-align:left;background:#141826;font-family:var(--font-ui);font-size:10.5px;color:#9fb0cc;font-weight:600;white-space:nowrap;padding-right:12px;box-shadow:1px 0 0 var(--glass-border)}
+.wg-table thead .wg-corner{position:sticky;left:0;z-index:3;background:#141826;box-shadow:1px 0 0 var(--glass-border)}
+.wg-table .wg-hour{color:var(--muted);font-size:10px}
+.wg-table .wg-dir{display:inline-block;transition:transform .15s}
+.wg-table .wg-cloud{font-size:9.5px;line-height:1.25;color:#9fb0cc}
+.wg-table .wg-cloud b{color:#dfe7f7;font-weight:600}
+.wg-table .wg-precip{color:#7fb4ff}
+.wg-note{padding:10px 16px;font-size:10.5px;color:var(--muted);line-height:1.5;border-top:1px solid var(--glass-border)}
+.wg-note b{color:#9fb0cc}
+@media (max-width:639px){.wg-head{flex-direction:column;align-items:flex-start}}
 .leaflet-container{background:#0a0d14;font-family:var(--font-ui)}
 .leaflet-control-attribution{background:rgba(10,13,20,.72)!important;color:#7a86a0!important;font-size:9px}
 .leaflet-control-attribution a{color:#9fb0cc!important}
@@ -716,20 +732,13 @@ input[type=range]{flex:1;accent-color:var(--accent)}
   <div id="toast" role="status" aria-live="polite" hidden></div>
 </div>
 
-<section id="sec-radar" class="section-block" aria-label="Radar de precipitación">
+<section id="sec-radar" class="section-block" aria-label="Pronóstico detallado por punto">
   <div class="sec-inner">
     <div class="sec-head">
-      <h2>Radar de precipitación</h2>
-      <p>RainViewer · reflectividad, últimos frames</p>
+      <h2>Pronóstico detallado</h2>
+      <p id="wg-subtitle">Clickeá cualquier punto del mapa de arriba para ver el reporte hora por hora · viento, olas, nubosidad e isoterma</p>
     </div>
-    <div id="radar-map" data-od-id="radar-map" class="radar-map"></div>
-    <div class="radar-controls">
-      <button id="radar-play" class="icon-btn" data-od-id="radar-play" aria-label="Reproducir radar" aria-pressed="false">▶</button>
-      <div id="radar-time" class="radar-time">—</div>
-      <input id="radar-scrub" data-od-id="radar-scrub" type="range" min="0" max="0" value="0" step="1" aria-label="Frame del radar">
-      <button id="radar-open-map" class="icon-btn" data-od-id="radar-open-map">Ver en el mapa completo</button>
-    </div>
-    <p class="radar-note">Frames del radar meteorológico <b>RainViewer</b>, actualizados automáticamente. Fuente de referencia adicional: <a href="https://www.windguru.cz/261" target="_blank" rel="noopener" style="color:var(--accent)">Windguru</a>.</p>
+    <div id="wg-report"><div class="wg-empty">Todavía no elegiste un punto. Buscá una ciudad o clickeá el mapa para ver el reporte completo acá.</div></div>
   </div>
 </section>
 
@@ -1598,8 +1607,6 @@ async function loadRadarIndex(){
   }catch(e){STATE.radar.frames=snap.frames;STATE.radar.host=snap.host;}
   radarIndexed=true;
   if(STATE.layer==='radar')setRadarFrame();
-  radarSecIdx=Math.max(0,STATE.radar.frames.length-1);
-  updateRadarSecFrame();
 }
 function nearestRadar(tSec){
   const f=STATE.radar.frames;if(!f.length)return null;
@@ -1614,54 +1621,96 @@ function setRadarFrame(){
   }
 }
 
-/* --- Sección 3: mapa de radar dedicado --- */
-let radarMap2=null,radarLayer2=null,radarSecTimer=null,radarSecIdx=0;
-function initRadarSection(){
-  if(radarMap2||typeof L==='undefined')return;
-  const el=document.getElementById('radar-map');
-  if(!el)return;
-  radarMap2=L.map('radar-map',{zoomControl:true,attributionControl:true,minZoom:2,maxZoom:9,worldCopyJump:true}).setView([-38.5,-64.5],3.4);
-  L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',{maxZoom:16,attribution:ESRI_ATTR}).addTo(radarMap2);
-  L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',{maxZoom:16}).addTo(radarMap2);
-  radarLayer2=L.tileLayer('',{maxZoom:10,minZoom:1,opacity:0.75,attribution:'Radar © RainViewer'}).addTo(radarMap2);
-  updateRadarSecFrame();
-  setTimeout(()=>{if(radarMap2)radarMap2.invalidateSize();},80);
+/* --- Sección 3: pronóstico detallado tipo Windguru, por punto clickeado --- */
+const WG_DIRS=['N','NE','E','SE','S','SO','O','NO'];
+let wgSeq=0;
+async function wgLoadReport(lat,lon,name){
+  const el=document.getElementById('wg-report');if(!el)return;
+  const seq=++wgSeq;
+  el.innerHTML='<div class="wg-empty">Cargando reporte de <b>'+escA(name)+'</b>…</div>';
+  const hourlyUrl='https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
+    '&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m,temperature_2m,precipitation,'+
+    'cloud_cover_low,cloud_cover_mid,cloud_cover_high,freezing_level_height'+
+    '&forecast_days=5&timezone=auto'+omModel();
+  const marineUrl='https://marine-api.open-meteo.com/v1/marine?latitude='+lat+'&longitude='+lon+
+    '&hourly=wave_height,wave_period,wave_direction&forecast_days=5&timezone=auto';
+  try{
+    const [jr,mr]=await Promise.all([
+      fetch(hourlyUrl,{mode:'cors'}).then(r=>r.json()),
+      fetch(marineUrl,{mode:'cors'}).then(r=>r.json()).catch(()=>null)
+    ]);
+    if(seq!==wgSeq)return;
+    const h=jr.hourly;
+    if(!h||!h.time||!h.time.length)throw new Error('vacio');
+    const mh=mr&&mr.hourly;
+    const hasWaves=!!(mh&&mh.wave_height&&mh.wave_height.some(v=>v!=null));
+    el.innerHTML=wgTableHTML(lat,lon,name,h,hasWaves?mh:null);
+  }catch(e){
+    if(seq!==wgSeq)return;
+    el.innerHTML='<div class="wg-empty">No se pudo cargar el reporte de <b>'+escA(name)+'</b>.</div>';
+  }
 }
-function updateRadarSecFrame(){
-  const frames=STATE.radar.frames;
-  const scrub=document.getElementById('radar-scrub');
-  const label=document.getElementById('radar-time');
-  if(!frames.length){if(label)label.textContent='Cargando…';return;}
-  radarSecIdx=clamp(radarSecIdx,0,frames.length-1);
-  if(scrub){scrub.max=String(frames.length-1);scrub.value=String(radarSecIdx);}
-  const fr=frames[radarSecIdx];
-  if(radarLayer2&&STATE.radar.host)radarLayer2.setUrl(STATE.radar.host+fr.p+'/256/{z}/{x}/{y}/2/1_1.png');
-  if(label)label.textContent=new Date(fr.t*1000).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+function wgArrow(deg){
+  if(deg==null)return '—';
+  return '<span class="wg-dir" style="transform:rotate('+((deg+180)%360)+'deg)" title="'+WG_DIRS[Math.round(((deg%360)+360)%360/45)%8]+'">↑</span>';
 }
-function stopRadarPlay(){
-  clearInterval(radarSecTimer);radarSecTimer=null;
-  const btn=document.getElementById('radar-play');
-  if(btn){btn.textContent='▶';btn.setAttribute('aria-pressed','false');}
+function wgTableHTML(lat,lon,name,h,mh){
+  const n=h.time.length;
+  const step=3; // horas entre columnas, alineado al resto del sitio
+  const idxs=[];
+  for(let i=0;i<n;i+=step)idxs.push(i);
+  let lastDay=null,dayGroups=[];
+  for(const i of idxs){
+    const d=new Date(Date.parse(h.time[i]+':00'));
+    const key=d.toDateString();
+    if(key!==lastDay){lastDay=key;dayGroups.push({label:d.toLocaleDateString('es-AR',{weekday:'short',day:'numeric',month:'short'}),count:1,firstIdx:i});}
+    else dayGroups[dayGroups.length-1].count++;
+  }
+  const dayHead=dayGroups.map(g=>'<th colspan="'+g.count+'" class="wg-daysep">'+g.label+'</th>').join('');
+  const hourRow=idxs.map((i,k)=>{
+    const d=new Date(Date.parse(h.time[i]+':00'));
+    const isDayStart=dayGroups.some(g=>g.firstIdx===i);
+    return '<td class="wg-hour'+(isDayStart?' wg-daysep':'')+'">'+String(d.getHours()).padStart(2,'0')+'h</td>';
+  }).join('');
+  const row=(label,cellFn)=>{
+    let cells='';
+    for(const i of idxs){
+      const isDayStart=dayGroups.some(g=>g.firstIdx===i);
+      cells+='<td'+(isDayStart?' class="wg-daysep"':'')+'>'+cellFn(i)+'</td>';
+    }
+    return '<tr><td class="wg-rowlabel">'+label+'</td>'+cells+'</tr>';
+  };
+  const wind=row('Viento (km/h)',i=>{
+    const v=h.wind_speed_10m&&h.wind_speed_10m[i];
+    return '<span style="display:inline-block;min-width:22px;border-radius:4px;padding:1px 3px;background:'+windColor(v)+'">'+(v!=null?Math.round(v):'—')+'</span>';
+  });
+  const gust=row('Ráfagas (km/h)',i=>{
+    const v=h.wind_gusts_10m&&h.wind_gusts_10m[i];
+    return '<span style="display:inline-block;min-width:22px;border-radius:4px;padding:1px 3px;background:'+windColor(v)+'">'+(v!=null?Math.round(v):'—')+'</span>';
+  });
+  const dir=row('Dirección',i=>wgArrow(h.wind_direction_10m&&h.wind_direction_10m[i]));
+  const temp=row('Temp. (°C)',i=>{const v=h.temperature_2m&&h.temperature_2m[i];return v!=null?Math.round(v):'—';});
+  const frz=row('Isoterma 0°C (m)',i=>{const v=h.freezing_level_height&&h.freezing_level_height[i];return v!=null?Math.round(v).toLocaleString('es-AR'):'—';});
+  const cloud=row('Nubes alta/media/baja (%)',i=>{
+    const a=h.cloud_cover_high&&h.cloud_cover_high[i],m=h.cloud_cover_mid&&h.cloud_cover_mid[i],b=h.cloud_cover_low&&h.cloud_cover_low[i];
+    if(a==null&&m==null&&b==null)return '—';
+    return '<div class="wg-cloud"><b>'+Math.round(a||0)+'</b>/<b>'+Math.round(m||0)+'</b>/<b>'+Math.round(b||0)+'</b></div>';
+  });
+  const precip=row('Precip. (mm/h)',i=>{const v=h.precipitation&&h.precipitation[i];return '<span class="wg-precip">'+(v!=null?v.toFixed(1):'0.0')+'</span>';});
+  let waveRows='';
+  if(mh){
+    waveRows+=row('Olas (m)',i=>{const v=mh.wave_height&&mh.wave_height[i];return v!=null?v.toFixed(1):'—';});
+    waveRows+=row('Periodo olas (s)',i=>{const v=mh.wave_period&&mh.wave_period[i];return v!=null?Math.round(v):'—';});
+    waveRows+=row('Dirección olas',i=>wgArrow(mh.wave_direction&&mh.wave_direction[i]));
+  }
+  return '<div class="wg-card">'+
+    '<div class="wg-head"><b>'+escA(name)+'</b><span>'+Number(lat).toFixed(2)+'°, '+Number(lon).toFixed(2)+'° · '+MODELS[STATE.model].label+' (Open-Meteo)</span></div>'+
+    '<div class="wg-scroll"><table class="wg-table"><thead><tr><th class="wg-corner"></th>'+dayHead+'</tr><tr><td class="wg-corner"></td>'+hourRow+'</tr></thead><tbody>'+
+    wind+gust+dir+temp+frz+cloud+precip+waveRows+
+    '</tbody></table></div>'+
+    '<p class="wg-note">Viento, ráfagas y temperatura a 2-10 m · nubosidad por altura (alta/media/baja) · isoterma 0°C = altura donde la temperatura cruza 0°C.'+(mh?' Olas: modelo <b>WW3</b> (Open-Meteo Marine).':'')+'</p>'+
+    '</div>';
 }
-function toggleRadarPlay(){
-  if(radarSecTimer){stopRadarPlay();return;}
-  const btn=document.getElementById('radar-play');
-  if(btn){btn.textContent='⏸';btn.setAttribute('aria-pressed','true');}
-  radarSecTimer=setInterval(()=>{
-    radarSecIdx=(radarSecIdx+1)%Math.max(1,STATE.radar.frames.length);
-    updateRadarSecFrame();
-  },700);
-}
-document.getElementById('radar-play').addEventListener('click',toggleRadarPlay);
-document.getElementById('radar-scrub').addEventListener('input',e=>{
-  stopRadarPlay();
-  radarSecIdx=+e.target.value;
-  updateRadarSecFrame();
-});
-document.getElementById('radar-open-map').addEventListener('click',()=>{
-  STATE.layer='radar';applyLayer();
-  document.getElementById('app').scrollIntoView({behavior:'smooth'});
-});
 
 const STEPS=STATE.steps;
 const DAYES=['dom','lun','mar','mié','jue','vie','sáb'];
@@ -1918,13 +1967,14 @@ function mapClickPop(e){
   if(!STATE.hourly||!STATE.hourly.time||!STATE.hourly.time.length){goToPlace(np);return;}
   sparkPopup(la,lo,np);
   if(np&&np.snap){goToPlace(np,{keepView:true});}
-  else{placePin(la,lo);}
+  else{placePin(la,lo);wgLoadReport(la,lo,np.nombre);}
 }
 function openAirport(a){
   const la=a.lat,lo=a.lon;
   if(!STATE.hourly||!STATE.hourly.time||!STATE.hourly.time.length)return;
   placePin(la,lo);
   sparkPopup(la,lo,{nombre:a.code+' · '+a.name,region:a.code,pais:'Argentina',snap:false});
+  wgLoadReport(la,lo,a.code+' · '+a.name);
 }
 function sparkHtml(h,title,loc){
   if(!h||!h.time||!h.time.length)return '<div class="spk-none">Sin datos de pronóstico para este punto.</div>';
@@ -2438,6 +2488,7 @@ function goToPlace(p,opts){
   if(!(opts&&opts.keepView))map.flyTo([+p.lat,+p.lon],Math.max(map.getZoom(),6),{duration:0.9});
   toast('Cargando pronóstico de <b>'+escA(p.nombre)+'</b>…');
   fetchForecast(STATE.city);
+  wgLoadReport(+p.lat,+p.lon,p.nombre);
 }
 function ctxFrom(h){
   if(!h||!h.temp||!h.temp.length)return '';
@@ -2991,7 +3042,7 @@ function init(){
   renderAlerts();
   renderThumbs();
   loadRadarIndex();
-  initRadarSection();
+  wgLoadReport(STATE.city.lat,STATE.city.lon,STATE.city.name);
   calibrateTemp();
   refreshLegendRanges();
   fetchForecast(STATE.city);
