@@ -602,6 +602,11 @@ input[type=range]{flex:1;accent-color:var(--accent)}
     <span class="layer-name">Precipitación</span>
     <div class="layer-thumb"></div>
   </button>
+  <button class="layer" data-layer="precipAccum" role="button" tabindex="0" aria-pressed="false">
+    <span class="layer-icon"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M8 1.6S3.6 6.5 3.6 9.4a4.4 4.4 0 0 0 8.8 0C12.4 6.5 8 1.6 8 1.6Z"/><path d="M2 13.5h12"/></svg></span>
+    <span class="layer-name">Precip. acumulada 24h</span>
+    <div class="layer-thumb"></div>
+  </button>
   <button class="layer" data-layer="radar" role="button" tabindex="0" aria-pressed="false">
     <span class="layer-icon"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M13.2 8a5.2 5.2 0 1 0-5.2 5.2M8 8l3.8-3.8M8 8a1.8 1.8 0 1 1-1.8-1.8"/></svg></span>
     <span class="layer-name">Radar</span>
@@ -993,6 +998,36 @@ function fieldPrecip(lat,lon,ihh){
   }
   return clamp(v,0,9);
 }
+/* Suma horaria interpolada espacialmente: para acumulación de precipitación
+   (24h reales de Open-Meteo). Sumar-y-luego-interpolar es matemáticamente
+   igual a interpolar-y-luego-sumar (la interpolación es lineal). */
+function valGridSum(G,lat,lon,name,i0,i1){
+  if(!G.ok)return null;
+  const c=clamp(Math.floor((lon-G.lon0)/G.dlon),0,G.cols-2);
+  const r=clamp(Math.floor((lat-G.lat0)/G.dlat),0,G.rows-2);
+  const tx=(lon-G.lon0)/G.dlon-c,ty=(lat-G.lat0)/G.dlat-r;
+  const sumAt=(rr,cc)=>{
+    const p=G.pts[rr*G.cols+cc];if(!p)return null;const a=p[name];if(!a)return null;
+    let s=0,any=false;
+    for(let i=Math.max(0,i0);i<=Math.min(a.length-1,i1);i++){if(a[i]!=null){s+=a[i];any=true;}}
+    return any?s:null;
+  };
+  const cands=[[sumAt(r,c),(1-tx)*(1-ty)],[sumAt(r,c+1),tx*(1-ty)],[sumAt(r+1,c),(1-tx)*ty],[sumAt(r+1,c+1),tx*ty]]
+    .filter(([v])=>v!=null);
+  if(!cands.length)return null;
+  let s=0,wt=0;
+  for(const[v,ww]of cands){s+=v*ww;wt+=ww;}
+  return s/wt;
+}
+function fieldPrecipAccum(lat,lon,ihh){
+  const HOURS=24;
+  const i1=Math.round(ihh),i0=i1-HOURS+1;
+  const g=valGridSum(GRID,lat,lon,'precip',i0,i1);
+  if(g!=null)return clamp(g,0,150);
+  let sum=0;
+  for(let h=i0;h<=i1;h+=3)sum+=fieldPrecip(lat,lon,h)*3;
+  return clamp(sum,0,150);
+}
 function fieldCloud(lat,lon,ihh){
   const g=gridVal(lat,lon,'cloud',ihh);
   if(g!=null)return clamp(g,0,100)/100;
@@ -1143,6 +1178,7 @@ const CM={
   hum:[[0,'#7a4a1e'],[0.3,'#c98f3a'],[0.55,'#4fae7a'],[0.8,'#2f9bd6'],[1,'#bfeaff']],
   pres:[[0,'#5a3a9a'],[0.4,'#8a68c8'],[0.7,'#b8b0e0'],[1,'#e8ecf8']],
   precip:[[0,'rgba(0,0,0,0)'],[0.3,'#1a5fa0'],[0.55,'#2890c0'],[0.7,'#4fc0a0'],[0.85,'#e0c030'],[1,'#e04020']],
+  precipAccum:[[0,'rgba(0,0,0,0)'],[0.3,'#1a5fa0'],[0.55,'#2890c0'],[0.7,'#4fc0a0'],[0.85,'#e0c030'],[1,'#e04020']],
   waves:[[0,'#081a3a'],[0.25,'#1a4f9c'],[0.45,'#3aa0c8'],[0.65,'#70d0e0'],[0.85,'#b8ecf0'],[1,'#ffffff']],
   aqi:[[0,'#0b2e14'],[0.17,'#00b445'],[0.33,'#ffd400'],[0.5,'#ff7e00'],[0.67,'#ff2d1a'],[0.83,'#8f3f97'],[1,'#7e0023']],
   wind:[[0,'#0b2236'],[0.4,'#1a4f9c'],[0.7,'#37b6e0'],[1,'#e8f7ff']],
@@ -1167,6 +1203,7 @@ const LGDOM={
   hum:[10,100,'Humedad','%'],
   pres:[980,1045,'Presión','hPa'],
   precip:[0,10,'Precipitación','mm/h'],
+  precipAccum:[0,100,'Precip. acumulada (24h)','mm'],
   cloud:[0,100,'Nubes / satélite','%'],
   ir:[0,1,'Temperatura de brillo (IR)',''],
   waves:[0,6,'Olas','m'],
@@ -1253,7 +1290,7 @@ function setWindCanvasesVisible(v){
   if(!v&&gl)gl.clear(gl.COLOR_BUFFER_BIT);
 }
 
-const rasterLayers=['temp','cloud','precip','hum','pres','waves','aqi','uv','cape'];
+const rasterLayers=['temp','cloud','precip','precipAccum','hum','pres','waves','aqi','uv','cape'];
 function rasterOn(){return rasterLayers.indexOf(STATE.layer)>=0}
 
 const NO_CONTEXT_LAYERS=['ir','cams','radar']; // capas donde viento/humedad no tienen sentido de contexto
@@ -1265,6 +1302,7 @@ function layerVal(lat,lon){
     case 'wind':{const[u,v]=fieldWind(lat,lon,t);const s=Math.hypot(u,v)*3.6;const d=Math.round((Math.atan2(v,u)*180/Math.PI+360)%360);main={label:'Viento',txt:s.toFixed(0)+' km/h · '+d+'°'};break;}
     case 'cloud':main={label:'Nubes',txt:(fieldCloud(lat,lon,t)*100).toFixed(0)+' %'};break;
     case 'precip':main={label:'Precipitación',txt:fieldPrecip(lat,lon,t).toFixed(1)+' mm/h'};break;
+    case 'precipAccum':main={label:'Precip. acum. 24h',txt:fieldPrecipAccum(lat,lon,t).toFixed(1)+' mm'};break;
     case 'hum':main={label:'Humedad',txt:fieldHum(lat,lon,t).toFixed(0)+' %'};break;
     case 'pres':main={label:'Presión',txt:fieldPres(lat,lon,t).toFixed(0)+' hPa'};break;
     case 'waves':{const w=fieldWaves(lat,lon,t);main={label:'Olas',txt:w.h.toFixed(1)+' m · '+Math.round(w.dir)+'°'};break;}
@@ -1322,7 +1360,7 @@ function drawRaster(){
      (porque multiplica por el brillo del mapa base, que es oscuro). Se compensa
      subiendo el piso de alpha. */
   const HL_BOOST=2.15;
-  const baseAlphaRaw=layer==='precip'?0.55:layer==='cloud'?0.68:layer==='waves'?0.56:layer==='aqi'?0.45:0.4;
+  const baseAlphaRaw=layer==='precip'||layer==='precipAccum'?0.55:layer==='cloud'?0.68:layer==='waves'?0.56:layer==='aqi'?0.45:0.4;
   /* Vista global (zoom bajo) = capa más sutil, como un "velo"; zoom alto = full opacidad,
      igual que hace Windy cuando te acercás. */
   const zoomFactor=clamp((map.getZoom()-2)/5,0.5,1);
@@ -1340,7 +1378,7 @@ function drawRaster(){
       if(oceanSensitive&&!isLand(la,lo))alpha*=OCEAN_DIM;
       if(layer==='temp'){v=clamp((fieldTemp(la,lo,ihh)-(-15))/50,0,1);col=cmap(CM.temp,v);}
       else if(layer==='hum'){v=clamp((fieldHum(la,lo,ihh)-10)/90,0,1);col=cmap(CM.hum,v);}
-      else if(layer==='pres'){v=clamp((fieldPres(la,lo,ihh)-980)/65,0,1);col=cmap(CM.pres,v);}
+      else if(layer==='pres'){continue;} // se dibuja como isobaras vectoriales, ver drawIsobars()
       else if(layer==='precip'){
         const pv=fieldPrecip(la,lo,ihh);
         if(pv<=0.02)continue;
@@ -1362,6 +1400,7 @@ function drawRaster(){
       else if(layer==='aqi'){v=clamp(fieldAQI(la,lo,ihh)/300,0,1);col=cmap(CM.aqi,v);}
       else if(layer==='uv'){v=clamp(fieldUV(la,lo,ihh)/14,0,1);col=cmap(CM.uv,v);}
       else if(layer==='cape'){const cv=fieldCAPE(la,lo,ihh);if(cv<=80)continue;v=clamp(cv/4000,0,1);col=cmap(CM.cape,v);}
+      else if(layer==='precipAccum'){const pv=fieldPrecipAccum(la,lo,ihh);if(pv<=0.5)continue;v=clamp(pv/100,0,1);col=cmap(CM.precip,v);}
       if(col){data[o]=col.r;data[o+1]=col.g;data[o+2]=col.b;data[o+3]=Math.round(255*alpha*col.a);}
     }
   }
@@ -1369,6 +1408,65 @@ function drawRaster(){
   ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
   ctx.drawImage(rasterOff,0,0,w,h);
   if(layer==='waves')drawWaveArrows(ctx,w,h,ihh,baseAlpha*STATE.opacity);
+  if(layer==='pres')drawIsobars(ctx,w,h,ihh);
+}
+/* Isobaras: líneas de contorno reales (marching squares) sobre la presión de
+   fieldPres(), en vez de una "mancha" de color rellena. */
+const MS_EDGES={
+  1:[['W','S']],2:[['S','E']],3:[['W','E']],4:[['N','E']],
+  5:[['N','E'],['S','W']],6:[['N','S']],7:[['N','W']],8:[['N','W']],
+  9:[['N','S']],10:[['N','W'],['S','E']],11:[['N','E']],12:[['W','E']],
+  13:[['S','E']],14:[['W','S']]
+};
+function drawIsobars(ctx,w,h,ihh){
+  const b=map.getBounds();
+  const cols=48,rows=36;
+  const W=b.getWest(),E=b.getEast(),S=b.getSouth(),N=b.getNorth();
+  const lons=new Float64Array(cols),lats=new Float64Array(rows);
+  for(let c=0;c<cols;c++)lons[c]=W+(E-W)*c/(cols-1);
+  for(let r=0;r<rows;r++)lats[r]=N-(N-S)*r/(rows-1);
+  const vals=new Float32Array(cols*rows);
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++)vals[r*cols+c]=fieldPres(lats[r],lons[c],ihh);
+  let lo=1e9,hi=-1e9;
+  for(let i=0;i<vals.length;i++){if(vals[i]<lo)lo=vals[i];if(vals[i]>hi)hi=vals[i];}
+  const step=4;
+  const startLevel=Math.ceil(lo/step)*step;
+  const levels=[];
+  for(let Lv=startLevel;Lv<=hi;Lv+=step)levels.push(Lv);
+  ctx.save();
+  ctx.lineWidth=1.1;
+  ctx.strokeStyle='rgba(222,227,242,'+(0.6*STATE.opacity).toFixed(2)+')';
+  ctx.font="9px 'JetBrains Mono',monospace";
+  const toPt=(lat,lon)=>map.latLngToContainerPoint([lat,lon]);
+  for(const level of levels){
+    let labeled=false;
+    for(let r=0;r<rows-1;r++){
+      for(let c=0;c<cols-1;c++){
+        const nw=vals[r*cols+c],ne=vals[r*cols+c+1],sw=vals[(r+1)*cols+c],se=vals[(r+1)*cols+c+1];
+        let idx=0;
+        if(nw>level)idx|=8;if(ne>level)idx|=4;if(se>level)idx|=2;if(sw>level)idx|=1;
+        if(idx===0||idx===15)continue;
+        const pairs=MS_EDGES[idx];if(!pairs)continue;
+        const xL=lons[c],xR=lons[c+1],yT=lats[r],yB=lats[r+1];
+        const lerpV=(va,vb,t0,t1)=>t0+(t1-t0)*(level-va)/(vb-va);
+        const P={
+          N:[lerpV(nw,ne,xL,xR),yT],S:[lerpV(sw,se,xL,xR),yB],
+          W:[xL,lerpV(nw,sw,yT,yB)],E:[xR,lerpV(ne,se,yT,yB)]
+        };
+        for(const[a,bK] of pairs){
+          const pa=toPt(P[a][1],P[a][0]),pb=toPt(P[bK][1],P[bK][0]);
+          ctx.beginPath();ctx.moveTo(pa.x,pa.y);ctx.lineTo(pb.x,pb.y);ctx.stroke();
+          if(!labeled&&(idx===6||idx===9)){
+            const mx=(pa.x+pb.x)/2,my=(pa.y+pb.y)/2;
+            ctx.fillStyle='rgba(15,18,28,.75)';ctx.fillRect(mx-13,my-7,26,12);
+            ctx.fillStyle='rgba(230,235,250,.92)';ctx.textAlign='center';ctx.fillText(String(Math.round(level)),mx,my+3);
+            labeled=true;
+          }
+        }
+      }
+    }
+  }
+  ctx.restore();
 }
 function drawWaveArrows(ctx,w,h,ihh,alpha){
   ctx.lineWidth=1.4;
@@ -1953,10 +2051,10 @@ function showLegend(){
     lg.hidden=false;
     return;
   }
-  if(STATE.layer==='radar'||STATE.layer==='wind'||STATE.layer==='cams'||STATE.layer==='airports'){lg.hidden=true;return;}
+  if(STATE.layer==='radar'||STATE.layer==='wind'||STATE.layer==='cams'||STATE.layer==='airports'||STATE.layer==='pres'){lg.hidden=true;return;}
   const cfg=LGDOM[STATE.layer]||LGDOM.temp;
   let lo=cfg[0],hi=cfg[1];
-  const ac={temp:[-15,35],hum:[10,100],pres:[980,1045],precip:[0,10],cloud:[0,100],waves:[0,6],aqi:[0,300],uv:[0,14],cape:[0,4000]};
+  const ac={temp:[-15,35],hum:[10,100],pres:[980,1045],precip:[0,10],precipAccum:[0,100],cloud:[0,100],waves:[0,6],aqi:[0,300],uv:[0,14],cape:[0,4000]};
   if(STATE.layer!=='cloud'&&ac[STATE.layer]){
     const r=LGDOM_RNG[STATE.layer];
     if(r&&r[0]<r[1]&&(r[0]<lo||r[1]>hi)){lo=Math.floor(r[0]);hi=Math.ceil(r[1]);}
@@ -2270,9 +2368,10 @@ function applyLayer(){
     temp:'Temperatura en superficie · pronóstico <b>'+ML+' (Open-Meteo)</b> sobre grilla real, interpolación continua.',
     wind:'Viento en superficie (km/h) · líneas de corriente trazadas sobre grilla <b>'+ML+'</b>.',
     cloud:'Cobertura de nubes (%, '+ML+'). Satélite real: <b>Mapa base → Satélite</b> (NASA GIBS).',
-    precip:'Precipitación estimada desde probabilidad horaria ('+ML+', mm/h) · <b>blanco = nieve</b> (T &lt; 2 °C).',
+    precip:'Precipitación real ('+ML+', mm/h) · <b>blanco = nieve</b> (T &lt; 2 °C).',
+    precipAccum:'Precipitación acumulada en las últimas <b>24 h</b> (mm, '+ML+').',
     hum:'Humedad relativa (%).',
-    pres:'Presión a nivel del mar (hPa).',
+    pres:'Isobaras cada 4 hPa · líneas de contorno reales sobre presión a nivel del mar.',
     waves:'Altura y dirección del oleaje · <b>Open-Meteo Marine (WW3)</b>.',
     aqi:'Calidad del aire (índice US AQI) · <b>Open-Meteo Air Quality (CAMS)</b>.',
     uv:'Índice UV máximo horario · protegerse a partir de 6 (alto).',
@@ -2310,10 +2409,11 @@ const LAYER_INFO={
   temp:'Temperatura en superficie · grilla pronóstico '+MODELS[STATE.model].label+' (Open-Meteo). Rango de la leyenda se ajusta al período cargado.',
   wind:'Viento en superficie (km/h) · líneas de corriente. Intensidad <b>fondo</b>, dirección <b>flechas</b>.',
   cloud:'Cobertura de nubes (%, '+MODELS[STATE.model].label+'). Blanco = nubosidad. Vista satelital real: base → Satélite (NASA GIBS).',
-  precip:'Precipitación estimada (mm/h) desde probabilidad horaria. Blanco punteado = nieve (T < 2 °C). Fuente real: Radar RainViewer.',
+  precip:'Precipitación real (mm/h, Open-Meteo). Blanco punteado = nieve (T < 2 °C). Fuente adicional: Radar RainViewer.',
+  precipAccum:'Precipitación acumulada en las últimas 24 horas (mm) · útil para ver dónde llovió más, no solo cuánto llueve ahora.',
   radar:'Radar de precipitación <b>RainViewer</b> (reflectividad). Los frames son aproximados al instante elegido.',
   hum:'Humedad relativa (%). Útil para sensación térmica y probabilidad de lluvia.',
-  pres:'Presión a nivel del mar (hPa) en superficie · constante en niveles superiores.',
+  pres:'Isobaras (líneas de igual presión) cada 4 hPa, con el valor marcado sobre la línea. Igual que un mapa sinóptico real.',
   waves:'Oleaje · altura significativa y dirección, modelo WW3 (Open-Meteo Marine).',
   aqi:'Calidad del aire · índice US AQI (CAMS/Open-Meteo). 0–50 bueno · 150+ insalubre.',
   uv:'Índice UV horario. 0-2 bajo · 3-5 moderado · 6-7 alto · 8-10 muy alto · 11+ extremo.',
@@ -2660,6 +2760,7 @@ const THUMB_CFG={
   wind:{f:(la,lo,ihh)=>{const[u,v]=fieldWind(la,lo,ihh);return Math.hypot(u,v)*3.6;},cm:CM.wind,nm:[0,60]},
   cloud:{f:(la,lo,ihh)=>fieldCloud(la,lo,ihh),cm:null,nm:null},
   precip:{f:(la,lo,ihh)=>fieldPrecip(la,lo,ihh),cm:CM.precip,nm:[0,9]},
+  precipAccum:{f:(la,lo,ihh)=>fieldPrecipAccum(la,lo,ihh),cm:CM.precip,nm:[0,100]},
   radar:{f:(la,lo,ihh)=>fieldPrecip(la,lo,ihh),cm:CM.precip,nm:[0,9]},
   hum:{f:(la,lo,ihh)=>fieldHum(la,lo,ihh),cm:CM.hum,nm:[0,100]},
   pres:{f:(la,lo,ihh)=>fieldPres(la,lo,ihh),cm:CM.pres,nm:[980,1045]},
