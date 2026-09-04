@@ -1180,7 +1180,8 @@ function isLand(lat,lon){
 }
 
 const map=L.map('map',{zoomControl:false,attributionControl:true,minZoom:2,maxZoom:10,worldCopyJump:true}).setView([-38.5,-64.5],4);
-const dark=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:19,attribution:'© OpenStreetMap · © CARTO'});
+const ESRI_ATTR='Esri, HERE, Garmin, © OpenStreetMap contributors, and the GIS user community';
+const dark=L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',{maxZoom:16,attribution:ESRI_ATTR});
 const sat=L.tileLayer.wms('https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi',{
   layers:'VIIRS_SNPP_CorrectedReflectance_TrueColor',format:'image/jpeg',transparent:true,version:'1.1.0',
   styles:'',maxZoom:9,tileSize:256,
@@ -1193,8 +1194,9 @@ const irSat=L.tileLayer.wms('https://gibs.earthdata.nasa.gov/wms/epsg3857/best/w
   time:(()=>{const d=new Date(Date.now()-60*60e3);d.setMinutes(Math.floor(d.getMinutes()/10)*10,0,0);return d.toISOString();})(),
   attribution:'Satélite IR © NASA GIBS · GOES-East ABI'
 });
-const lbls=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:19});
+const lbls=L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',{maxZoom:16});
 dark.addTo(map);
+lbls.addTo(map);
 
 const mdiv=document.getElementById('map');
 const rasterCanvas=document.createElement('canvas');
@@ -1619,7 +1621,8 @@ function initRadarSection(){
   const el=document.getElementById('radar-map');
   if(!el)return;
   radarMap2=L.map('radar-map',{zoomControl:true,attributionControl:true,minZoom:2,maxZoom:9,worldCopyJump:true}).setView([-38.5,-64.5],3.4);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:19,attribution:'© OpenStreetMap · © CARTO'}).addTo(radarMap2);
+  L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',{maxZoom:16,attribution:ESRI_ATTR}).addTo(radarMap2);
+  L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',{maxZoom:16}).addTo(radarMap2);
   radarLayer2=L.tileLayer('',{maxZoom:10,minZoom:1,opacity:0.75,attribution:'Radar © RainViewer'}).addTo(radarMap2);
   updateRadarSecFrame();
   setTimeout(()=>{if(radarMap2)radarMap2.invalidateSize();},80);
@@ -2313,7 +2316,7 @@ document.getElementById('lvl-seg').addEventListener('click',e=>{
 });
 function applyBase(){
   if(STATE.base==='sat'){sat.addTo(map);lbls.addTo(map);dark.remove();}
-  else{dark.addTo(map);lbls.remove();sat.remove();}
+  else{dark.addTo(map);lbls.addTo(map);sat.remove();}
   document.querySelectorAll('#base-seg .seg-btn').forEach(b=>b.classList.toggle('active',b.dataset.base===STATE.base));
   pressSync('#base-seg .seg-btn');
 }
