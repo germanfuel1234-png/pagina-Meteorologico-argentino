@@ -1854,7 +1854,7 @@ function buildTimeline(){
       ph.innerHTML='<svg viewBox="0 0 12 12" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.2">'+(hr===6?'<circle cx="6" cy="6" r="3.1"/><path d="M6 1.2v1.4M6 9.4v1.4M1.2 6h1.4M9.4 6h1.4M2.9 2.9l1 1M8.1 8.1l1 1M9.1 2.9l-1 1M3.9 8.1l-1 1"/>':'<path d="M9.1 8A4.7 4.7 0 1 1 4 2.9a3.7 3.7 0 0 0 5.1 5.1Z"/>')+'</svg>';
       tk.appendChild(ph);
     }
-    if(i===STATE.t0Index){
+    if(i===0){
       tk.classList.add('now');
       const nl=document.createElement('span');nl.className='now-lbl';nl.textContent='Ahora';
       tk.appendChild(nl);
@@ -1961,7 +1961,7 @@ function renderCity(){
     const el=document.createElement('div');el.className='day';
     const date=new Date(STATE.t0Epoch+(i)*24*3600e3);
     el.innerHTML='<div class="d-name">'+DAYES[date.getDay()]+'</div>'+
-      '<div class="d-t">'+d.tmax+'<span>/'+d.tmin+'</span></div>'+
+      '<div class="d-t">'+d.tmax+'°<span>/'+d.tmin+'°</span></div>'+
       '<div class="d-p">'+d.prob+'%</div>';
     el.addEventListener('click',()=>setTime(STATE.t0Index+i*8));
     dd.appendChild(el);
@@ -2034,9 +2034,13 @@ function renderBizDays(items){
 
 function setMeta(){
   const mt=document.getElementById('meta-text');
-  const live=STATE.hourly&&STATE.hourly.temp;
+  const h=STATE.hourly;
+  const live=h&&h.temp&&h.temp.length;
   const src=STATE.windySrc?'Windy ('+MODELS[STATE.model].org+')':'Open-Meteo';
-  mt.textContent=src+' · '+(live?'en vivo':'snapshot')+' · '+BOOT.updatedAt.replace('T',' ').replace('+00','');
+  const ts=(live&&h.time&&h.time[STATE.t0Index])
+    ?h.time[STATE.t0Index].replace('T',' ')+':00'
+    :BOOT.updatedAt.replace('T',' ').replace('+00','');
+  mt.textContent=src+' · '+(live?'en vivo':'snapshot')+' · '+ts;
 }
 let toastTimer=null;
 function toast(msg){
