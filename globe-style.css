@@ -148,6 +148,26 @@ body.globe-body {
 .hud-layer-name b { font-weight: 600; letter-spacing: .02em; }
 .hud-layer-name small { color: var(--g-muted); font-size: 9px; letter-spacing: .04em; }
 
+.hud-settings { padding: 8px 12px 12px; }
+.hud-settings p {
+  margin: 0 0 8px; font-size: 9.5px; line-height: 1.5; color: var(--g-muted); letter-spacing: .01em;
+}
+.hud-settings p a { color: var(--g-cyan); }
+.hud-key-row { display: flex; gap: 6px; }
+.hud-key-row input {
+  flex: 1; min-width: 0; background: rgba(255,255,255,.04); border: 1px solid var(--g-line-dim);
+  border-radius: 3px; color: var(--g-text); font-family: var(--g-mono); font-size: 10px; padding: 6px 8px;
+}
+.hud-key-row input:focus { outline: none; border-color: var(--g-cyan); }
+.hud-key-row button {
+  background: rgba(75,255,214,.12); border: 1px solid var(--g-line); color: var(--g-cyan);
+  font-family: var(--g-mono); font-size: 10px; letter-spacing: .04em; text-transform: uppercase;
+  padding: 6px 10px; border-radius: 3px; cursor: pointer;
+}
+.hud-key-row button:hover { border-color: var(--g-cyan); }
+#ion-key-status { display: block; margin-top: 6px; font-size: 9px; color: var(--g-muted); letter-spacing: .02em; }
+#ion-key-status.is-active { color: var(--g-cyan); }
+
 .hud-toggle {
   position: relative;
   width: 32px; height: 17px;

@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/cesium@1.120.0/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
-<link href="globe-style.css" rel="stylesheet">
+<link href="globe-style.css?v=2" rel="stylesheet">
 </head>
 <body class="globe-body">
 
@@ -68,6 +68,21 @@
     <div class="hud-layer-name"><b>Cables submarinos</b><small>TeleGeography · estático</small></div>
     <input type="checkbox" class="hud-toggle" id="layer-cables">
   </div>
+
+  <div class="hud-layer">
+    <div class="hud-layer-name"><b>Cámaras</b><small id="cams-count">OSM/Overpass · según la zona visible</small></div>
+    <input type="checkbox" class="hud-toggle" id="layer-cams">
+  </div>
+
+  <div class="hud-panel-title">Textura del globo</div>
+  <div class="hud-settings">
+    <p>Por defecto usa tiles de Esri directo (gratis, sin clave, pero puede tildarse al navegar). Con una clave gratuita de <a href="https://ion.cesium.com/signup" target="_blank" rel="noopener">Cesium ion</a> pasa a imagery + terreno 3D real servidos por su CDN — el mismo origen que usa el video, mucho más fluido.</p>
+    <div class="hud-key-row">
+      <input type="password" id="ion-key" placeholder="Clave de Cesium ion (opcional)" autocomplete="off" spellcheck="false">
+      <button id="ion-key-save" type="button">Guardar</button>
+    </div>
+    <small id="ion-key-status"></small>
+  </div>
 </nav>
 
 <div class="hud-info" id="hud-info">
@@ -83,11 +98,12 @@
     <span><i style="background:#ffb84b"></i>Vuelos</span>
     <span><i style="background:#6fd1ff"></i>Estaciones</span>
     <span><i style="background:#7a5cff"></i>Cables</span>
+    <span><i style="background:#ff4d6d"></i>Cámaras</span>
   </div>
 </footer>
 
 <script src="https://unpkg.com/cesium@1.120.0/Build/Cesium/Cesium.js"></script>
 <script src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"></script>
-<script src="globe.js"></script>
+<script src="globe.js?v=3"></script>
 </body>
 </html>

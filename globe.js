@@ -3,7 +3,8 @@
    Vista experimental en paralelo al mapa 2D del SMN (index.html).
    Capas: nubes GOES-16 (GIBS), radar (RainViewer), estaciones AR
    (Open-Meteo), vuelos (OpenSky vía proxy), satélites (CelesTrak +
-   satellite.js) y cables submarinos (snapshot estático TeleGeography).
+   satellite.js), cables submarinos (snapshot estático TeleGeography)
+   y cámaras (OSM/Overpass, por la zona visible del mapa).
    Todas las capas se degradan solas (quedan vacías) si su fuente
    no responde, sin romper el resto del globo.
    =========================================================== */
@@ -99,6 +100,11 @@
     viewer.scene.backgroundColor = Cesium.Color.BLACK;
     viewer.scene.fog.enabled = true;
     viewer.clock.shouldAnimate = false;
+    // Cachear más tiles en memoria: sin esto, cada vez que volvés a una zona
+    // ya visitada Cesium la vuelve a pedir por red en vez de reusar el tile.
+    viewer.scene.globe.tileCacheSize = 1000;
+
+    wireIonKey();
 
     // Vista inicial: Argentina
     viewer.camera.flyTo({
@@ -115,6 +121,7 @@
     initSatellites(true);
     initCables(false);
     initFlights(false);
+    initCams(false);
 
     document.getElementById('hud-loading').classList.add('is-hidden');
   }
@@ -164,6 +171,53 @@
   function hideInfo() { infoEl.classList.remove('is-visible'); }
 
   // ===========================================================
+  // Textura base del globo: Esri directo (gratis, sin clave) por
+  // defecto; si hay una clave de Cesium ion guardada, se reemplaza
+  // por imagery + terreno servidos por el CDN de ion (más fluido,
+  // el mismo origen que usa el video).
+  // ===========================================================
+  function ionKey() { try { return (localStorage.getItem('cesiumIonKey') || '').trim(); } catch (e) { return ''; } }
+
+  function wireIonKey() {
+    var input = document.getElementById('ion-key');
+    var status = document.getElementById('ion-key-status');
+    var saveBtn = document.getElementById('ion-key-save');
+    try { input.value = ionKey(); } catch (e) {}
+    updateStatus();
+    saveBtn.addEventListener('click', function () {
+      var v = input.value.trim();
+      try { v ? localStorage.setItem('cesiumIonKey', v) : localStorage.removeItem('cesiumIonKey'); } catch (e) {}
+      updateStatus();
+      if (v) upgradeToIonImagery(v);
+    });
+    if (ionKey()) upgradeToIonImagery(ionKey());
+    function updateStatus() {
+      var has = !!ionKey();
+      status.textContent = has ? 'Usando imagery + terreno de Cesium ion.' : 'Usando Esri directo (sin clave).';
+      status.classList.toggle('is-active', has);
+    }
+  }
+
+  function upgradeToIonImagery(key) {
+    Cesium.Ion.defaultAccessToken = key;
+    Promise.all([
+      Cesium.createWorldImageryAsync(),
+      Cesium.createWorldTerrainAsync()
+    ]).then(function (results) {
+      // Solo se reemplaza la capa base (índice 0, Esri directo); GOES/radar,
+      // que se agregan encima en otro momento, no se tocan.
+      var oldBase = viewer.imageryLayers.get(0);
+      viewer.imageryLayers.add(new Cesium.ImageryLayer(results[0]), 0);
+      viewer.imageryLayers.remove(oldBase, true);
+      viewer.terrainProvider = results[1];
+    }).catch(function () {
+      var status = document.getElementById('ion-key-status');
+      status.textContent = 'La clave no funcionó (¿la copiaste bien?) — seguimos con Esri directo.';
+      status.classList.remove('is-active');
+    });
+  }
+
+  // ===========================================================
   // Toggles del panel de capas
   // ===========================================================
   function wireLayerToggles() {
@@ -173,6 +227,7 @@
     on('layer-satellites', function (v) { if (satPoints) satPoints.show = v; });
     on('layer-cables', function (v) { initCables(v); if (cablesDS) cablesDS.show = v; });
     on('layer-flights', function (v) { initFlights(v); if (flightsDS) flightsDS.show = v; });
+    on('layer-cams', function (v) { initCams(v); if (camsDS) camsDS.show = v; });
   }
   function on(id, fn) {
     var el = document.getElementById(id);
@@ -456,6 +511,91 @@
     }).catch(function () {
       document.getElementById('flights-hint').hidden = false;
     });
+  }
+
+  // ===========================================================
+  // Capa: cámaras (OSM/Overpass) — se pide por la zona visible del
+  // mapa, no de golpe para toda Argentina/el mundo (sería enorme y
+  // Overpass es un servicio compartido: hay que pedirle con cuidado).
+  // ===========================================================
+  var camsDS, camsEnabled = false, camsBusy = false, camsMoveEndListener = null, camsDebounceTimer = null;
+  var CAMS_MAX_HEIGHT_M = 400000; // por arriba de esta altura no se pide (bbox demasiado grande)
+
+  function initCams(enabled) {
+    if (!camsDS) {
+      camsDS = new Cesium.CustomDataSource('cams');
+      viewer.dataSources.add(camsDS);
+    }
+    camsEnabled = enabled;
+    camsDS.show = enabled;
+    if (!enabled) {
+      if (camsMoveEndListener) { camsMoveEndListener(); camsMoveEndListener = null; }
+      return;
+    }
+    loadCamsForView();
+    if (!camsMoveEndListener) {
+      var handler = function () {
+        clearTimeout(camsDebounceTimer);
+        camsDebounceTimer = setTimeout(loadCamsForView, 700);
+      };
+      viewer.camera.moveEnd.addEventListener(handler);
+      camsMoveEndListener = function () { viewer.camera.moveEnd.removeEventListener(handler); };
+    }
+  }
+
+  function loadCamsForView() {
+    if (!camsEnabled || camsBusy) return;
+    var countEl = document.getElementById('cams-count');
+    var height = viewer.camera.positionCartographic.height;
+    if (height > CAMS_MAX_HEIGHT_M) {
+      countEl.textContent = 'Acercate más para ver cámaras (zona visible muy grande)';
+      camsDS.entities.removeAll();
+      return;
+    }
+    var rect = viewer.camera.computeViewRectangle(viewer.scene.globe.ellipsoid);
+    if (!rect) return;
+    var west = Cesium.Math.toDegrees(rect.west), south = Cesium.Math.toDegrees(rect.south);
+    var east = Cesium.Math.toDegrees(rect.east), north = Cesium.Math.toDegrees(rect.north);
+    var bbox = south + ',' + west + ',' + north + ',' + east;
+    var query = '[out:json][timeout:20];(' +
+      'node["man_made"="surveillance"](' + bbox + ');' +
+      'node["surveillance"](' + bbox + ');' +
+      'node["highway"="speed_camera"](' + bbox + ');' +
+      ');out body 300;';
+
+    camsBusy = true;
+    countEl.textContent = 'Buscando cámaras en la zona visible…';
+    fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(query) })
+      .then(function (r) { if (!r.ok) throw new Error('overpass'); return r.json(); })
+      .then(function (data) {
+        camsDS.entities.removeAll();
+        (data.elements || []).forEach(function (el) {
+          if (el.type !== 'node') return;
+          var kind = el.tags.highway === 'speed_camera' ? 'Cámara de velocidad'
+            : el.tags.surveillance === 'traffic' ? 'Cámara de tránsito'
+            : el.tags.surveillance === 'public' ? 'Cámara de vigilancia pública'
+            : 'Cámara (OSM)';
+          var e = camsDS.entities.add({
+            position: Cesium.Cartesian3.fromDegrees(el.lon, el.lat),
+            point: { pixelSize: 6, color: Cesium.Color.fromCssColorString('#ff4d6d'),
+              outlineColor: Cesium.Color.BLACK, outlineWidth: 1, disableDepthTestDistance: Number.POSITIVE_INFINITY }
+          });
+          e.__hud = {
+            title: kind,
+            rows: [
+              ['Tipo OSM', el.tags.surveillance || el.tags.highway || '—'],
+              ['Nodo', String(el.id)],
+              ['Fuente', 'OpenStreetMap / Overpass']
+            ]
+          };
+        });
+        countEl.textContent = data.elements.length + ' cámaras en la zona visible (OSM)';
+        camsBusy = false;
+      })
+      .catch(function () {
+        countEl.textContent = 'No se pudo consultar Overpass ahora mismo.';
+        camsBusy = false;
+      });
   }
 
 })();
