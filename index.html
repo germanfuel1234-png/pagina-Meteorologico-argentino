@@ -433,6 +433,7 @@ input[type=range]{flex:1;accent-color:var(--accent)}
 #model-note{margin-top:6px}
 /* --- Vista Windy --- */
 #btn-windy{display:flex}
+#btn-globe{display:flex;text-decoration:none;box-sizing:border-box}
 #windy-view{position:fixed;inset:0;z-index:1500;background:rgba(4,6,10,.6);display:none;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(6px)}
 #windy-view.open{display:flex}
 #wv-card{width:min(1180px,96vw);height:min(720px,92vh);background:#0b0e15;border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.55);display:flex;flex-direction:column}
@@ -527,6 +528,7 @@ input[type=range]{flex:1;accent-color:var(--accent)}
     <button id="btn-hist" class="icon-btn" data-od-id="btn-hist" aria-label="Abrir historial"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3.5v4.5l2.8 1.8"/><circle cx="8" cy="8" r="5.3"/></svg>Historial</button>
     <button id="btn-layers" class="icon-btn" data-od-id="btn-layers" aria-label="Abrir capas"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4.5 8 2l6 2.5-6 2.5zM2 8.5l6 2.5 6-2.5M2 12l6 2.5 6-2.5"/></svg>Capas</button>
     <button id="btn-windy" class="icon-btn" data-od-id="btn-windy" aria-label="Abrir vista Windy"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5.5h10M3 5.5 5 3M3 5.5 5 8M13 5.5l-2-2.5M13 5.5 11 8"/><path d="M3 10.5h10M3 10.5 5 8M3 10.5 5 13M13 10.5l-2-2M13 10.5 11 13"/></svg>Windy</button>
+    <a id="btn-globe" class="icon-btn" href="globe.html" data-od-id="btn-globe" aria-label="Abrir globo 3D" title="Vista experimental: globo 3D con vuelos, satélites y más"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2.2 2 2.2 10 0 12M8 2c-2.2 2-2.2 10 0 12"/></svg>Globo 3D</a>
   </header>
 
   <div id="map" data-od-id="map"></div>

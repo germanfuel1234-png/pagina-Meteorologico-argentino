@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Globo 3D · God's Eye View · SMN Argentina</title>
+<meta name="description" content="Vista 3D en tiempo real: vuelos, satélites, nubes GOES-16 y cables submarinos sobre un globo interactivo — proyecto SMN Argentina.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://unpkg.com/cesium@1.120.0/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+<link href="globe-style.css" rel="stylesheet">
+</head>
+<body class="globe-body">
+
+<div id="cesiumContainer"></div>
+<div class="hud-scanlines" aria-hidden="true"></div>
+<div class="hud-vignette" aria-hidden="true"></div>
+
+<div class="hud-loading" id="hud-loading">
+  <div class="hud-spinner"></div>
+  <strong>God's Eye View</strong>
+  <small>Inicializando globo · cargando capas en vivo…</small>
+</div>
+
+<header class="hud-top">
+  <div class="hud-brand">
+    <span class="dot"></span>
+    <div>
+      <strong>God's Eye View</strong><br>
+      <span>Globo 3D · SMN Argentina · datos en vivo</span>
+    </div>
+  </div>
+  <div class="hud-spacer"></div>
+  <div class="hud-clock" id="hud-clock">--:--:-- UTC</div>
+  <a class="hud-link-back" href="index.html">← Mapa SMN 2D</a>
+</header>
+
+<nav class="hud-panel" id="hud-panel" aria-label="Capas de datos">
+  <div class="hud-panel-title">Capas de datos</div>
+
+  <div class="hud-layer">
+    <div class="hud-layer-name"><b>Nubes GOES-16</b><small>NASA GIBS · sin clave</small></div>
+    <input type="checkbox" class="hud-toggle" id="layer-goes" checked>
+  </div>
+
+  <div class="hud-layer">
+    <div class="hud-layer-name"><b>Radar de lluvia</b><small>RainViewer · sin clave</small></div>
+    <input type="checkbox" class="hud-toggle" id="layer-radar">
+  </div>
+
+  <div class="hud-layer">
+    <div class="hud-layer-name"><b>Estaciones AR</b><small>Open-Meteo · en vivo</small></div>
+    <input type="checkbox" class="hud-toggle" id="layer-stations" checked>
+  </div>
+
+  <div class="hud-layer">
+    <div class="hud-layer-name"><b>Vuelos en vivo</b><small id="flights-hint-text">OpenSky · vía proxy</small></div>
+    <input type="checkbox" class="hud-toggle" id="layer-flights">
+  </div>
+  <div class="hud-layer-hint" id="flights-hint" hidden>Requiere el backend (smn_proxy.py) corriendo — sin él, esta capa no tiene datos.</div>
+
+  <div class="hud-layer">
+    <div class="hud-layer-name"><b>Satélites</b><small>CelesTrak TLE · satellite.js</small></div>
+    <input type="checkbox" class="hud-toggle" id="layer-satellites" checked>
+  </div>
+
+  <div class="hud-layer">
+    <div class="hud-layer-name"><b>Cables submarinos</b><small>TeleGeography · estático</small></div>
+    <input type="checkbox" class="hud-toggle" id="layer-cables">
+  </div>
+</nav>
+
+<div class="hud-info" id="hud-info">
+  <button class="hud-info-close" id="hud-info-close" aria-label="Cerrar">×</button>
+  <div class="hud-info-title" id="hud-info-title">—</div>
+  <div id="hud-info-body"></div>
+</div>
+
+<footer class="hud-bottom">
+  <div class="hud-coords" id="hud-coords">LAT <b>--.----</b> · LON <b>--.----</b></div>
+  <div class="hud-legend">
+    <span><i style="background:#4bffd6"></i>Satélites</span>
+    <span><i style="background:#ffb84b"></i>Vuelos</span>
+    <span><i style="background:#6fd1ff"></i>Estaciones</span>
+    <span><i style="background:#7a5cff"></i>Cables</span>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/cesium@1.120.0/Build/Cesium/Cesium.js"></script>
+<script src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"></script>
+<script src="globe.js"></script>
+</body>
+</html>

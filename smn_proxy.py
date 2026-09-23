@@ -138,6 +138,36 @@ async def get_airports():
         return JSONResponse({"items": []})
 
 # ============================================================
+# 4b. PROXY DE VUELOS EN VIVO (OpenSky Network - CORS lo exige)
+# ============================================================
+@app.get("/api/flights")
+async def get_flights(lamin: float = -56, lomin: float = -76, lamax: float = -20, lomax: float = -52):
+    """
+    OpenSky no manda cabeceras CORS abiertas, así que el navegador no puede
+    llamarla directo: este proxy la consulta server-to-server y sí devuelve
+    Access-Control-Allow-Origin (middleware global de este archivo).
+    """
+    cache_key = f"flights_{lamin}_{lomin}_{lamax}_{lomax}"
+    if cache_key in cache and time.time() - cache[cache_key]["ts"] < 20:
+        return JSONResponse(cache[cache_key]["data"])
+
+    url = (
+        "https://opensky-network.org/api/states/all"
+        f"?lamin={lamin}&lomin={lomin}&lamax={lamax}&lomax={lomax}"
+    )
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=10) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    cache[cache_key] = {"data": data, "ts": time.time()}
+                    return JSONResponse(data)
+                return JSONResponse({"states": []})
+    except Exception as e:
+        log.error(f"Error en /api/flights: {e}")
+        return JSONResponse({"states": []})
+
+# ============================================================
 # 5. PROXY DE CÁMARAS WINDY (Sigue igual)
 # ============================================================
 @app.get("/api/webcams")

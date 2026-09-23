@@ -8,8 +8,22 @@ que el proyecto son dos partes que trabajan juntas:
 | Archivo          | Rol                                                        |
 |------------------|------------------------------------------------------------|
 | `index.html`     | Frontend (Leaflet + canvas): capas, línea de tiempo, UI.   |
-| `smn_proxy.py`   | Backend FastAPI: consulta y **cachea** datos del SMN.      |
+| `globe.html`     | Vista experimental 3D ("God's Eye View", CesiumJS) en paralelo al mapa 2D. |
+| `smn_proxy.py`   | Backend FastAPI: consulta y **cachea** datos del SMN (y OpenSky para vuelos). |
 | `docker-compose.yml` | Build y orquestación (nginx + FastAPI + Redis).        |
+
+---
+
+## 🌐 Globo 3D (`globe.html`)
+
+Vista alternativa estilo HUD/cyberpunk sobre un globo 3D (CesiumJS), pensada como
+demo "God's Eye View": nubes GOES-16 en vivo, estaciones AR (Open-Meteo), vuelos
+en tiempo real (OpenSky, vía `smn_proxy.py` — CORS lo exige), satélites en órbita
+(CelesTrak + satellite.js) y cables submarinos (snapshot estático de TeleGeography
+en `data/submarine-cables.geo.json`, porque esa fuente no habilita CORS). Se accede
+desde el botón **Globo 3D** del mapa 2D, o abriendo `globe.html` directo. No
+requiere ninguna clave de API; si `smn_proxy.py` no está corriendo, la capa de
+vuelos simplemente queda vacía con un aviso, sin romper el resto.
 
 ---
 
@@ -140,7 +154,12 @@ docker compose ps
 ```
 .
 ├── index.html            # Frontend (Leaflet + canvas)
-├── smn_proxy.py          # Backend FastAPI (consulta + cache del SMN)
+├── globe.html            # Vista 3D experimental (CesiumJS, "God's Eye View")
+├── globe.js              # Lógica de capas del globo 3D
+├── globe-style.css        # Piel HUD/cyberpunk del globo 3D
+├── data/
+│   └── submarine-cables.geo.json  # Snapshot estático TeleGeography (sin CORS)
+├── smn_proxy.py          # Backend FastAPI (consulta + cache del SMN + OpenSky)
 ├── requirements.txt      # Dependencias de Python del backend
 ├── docker-compose.yml    # Orquestación: nginx + fastapi + redis
 ├── Dockerfile.backend    # Imagen del backend FastAPI

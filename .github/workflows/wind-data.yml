@@ -5,6 +5,12 @@ on:
     branches: [main]
     paths:
       - 'index.html'
+      - 'globe.html'
+      - 'globe.js'
+      - 'globe-style.css'
+      - 'windy-style.css'
+      - 'app.js'
+      - 'data/**'
       - 'scripts/**'
       - '.github/workflows/wind-data.yml'
   schedule:
@@ -44,7 +50,9 @@ jobs:
         run: |
           mkdir -p public_site
           cp -r public/* public_site/ 2>/dev/null || true
-          cp index.html public_site/index.html
+          cp index.html app.js windy-style.css public_site/
+          cp globe.html globe.js globe-style.css public_site/
+          cp -r data public_site/data
 
       - uses: actions/upload-pages-artifact@v3
         with:
