@@ -30,6 +30,10 @@ CACHE_TTL = 600  # 10 minutos de caché para no saturar
 async def startup_event():
     log.info("🚀 Proxy Global iniciado en http://0.0.0.0:8000")
 
+@app.get("/api/health")
+async def health():
+    return {"status": "ok"}
+
 # ============================================================
 # 1. PROXY DE SATÉLITE (NASA GIBS - Libre y global)
 # ============================================================
@@ -166,6 +170,60 @@ async def get_flights(lamin: float = -56, lomin: float = -76, lamax: float = -20
     except Exception as e:
         log.error(f"Error en /api/flights: {e}")
         return JSONResponse({"states": []})
+
+# ============================================================
+# 4c. PROXY DE INCENDIOS ACTIVOS (NASA FIRMS - CORS lo exige + clave)
+# ============================================================
+FIRMS_MAP_KEY = os.environ.get("FIRMS_MAP_KEY", "")
+
+@app.get("/api/fires")
+async def get_fires(bbox: str = "-76,-56,-52,-20", days: int = 1):
+    """
+    NASA FIRMS no manda cabeceras CORS y además pide una MAP_KEY gratuita
+    (https://firms.modaps.eosdis.nasa.gov/api/map_key/), así que se resuelve
+    server-to-server con la clave guardada en la variable de entorno
+    FIRMS_MAP_KEY. Sin esa variable configurada, la capa queda vacía.
+    bbox = "west,south,east,north" (grados decimales).
+    """
+    if not FIRMS_MAP_KEY:
+        return JSONResponse({"items": [], "error": "FIRMS_MAP_KEY no configurada"})
+
+    cache_key = f"fires_{bbox}_{days}"
+    if cache_key in cache and time.time() - cache[cache_key]["ts"] < 900:
+        return JSONResponse(cache[cache_key]["data"])
+
+    url = (
+        f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{FIRMS_MAP_KEY}"
+        f"/VIIRS_SNPP_NRT/{bbox}/{days}"
+    )
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=15) as resp:
+                text = await resp.text()
+                if resp.status != 200 or text.startswith("Invalid") or text.startswith("Error"):
+                    log.error(f"Error en /api/fires: {text[:200]}")
+                    return JSONResponse({"items": []})
+                import csv
+                import io
+                reader = csv.DictReader(io.StringIO(text))
+                items = []
+                for row in reader:
+                    try:
+                        items.append({
+                            "lat": float(row.get("latitude", 0)),
+                            "lon": float(row.get("longitude", 0)),
+                            "confidence": row.get("confidence"),
+                            "frp": row.get("frp"),
+                            "date": row.get("acq_date"),
+                        })
+                    except (ValueError, TypeError):
+                        continue
+                data = {"items": items}
+                cache[cache_key] = {"data": data, "ts": time.time()}
+                return JSONResponse(data)
+    except Exception as e:
+        log.error(f"Error en /api/fires: {e}")
+        return JSONResponse({"items": []})
 
 # ============================================================
 # 5. PROXY DE CÁMARAS WINDY (Sigue igual)

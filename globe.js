@@ -122,6 +122,9 @@
     initCables(false);
     initFlights(false);
     initCams(false);
+    initInfra(false);
+    initQuakes(false);
+    initFires(false);
 
     document.getElementById('hud-loading').classList.add('is-hidden');
   }
@@ -227,7 +230,10 @@
     on('layer-satellites', function (v) { if (satPoints) satPoints.show = v; });
     on('layer-cables', function (v) { initCables(v); if (cablesDS) cablesDS.show = v; });
     on('layer-flights', function (v) { initFlights(v); if (flightsDS) flightsDS.show = v; });
-    on('layer-cams', function (v) { initCams(v); if (camsDS) camsDS.show = v; });
+    on('layer-cams', function (v) { initCams(v); });
+    on('layer-infra', function (v) { initInfra(v); });
+    on('layer-quakes', function (v) { initQuakes(v); });
+    on('layer-fires', function (v) { initFires(v); });
   }
   function on(id, fn) {
     var el = document.getElementById(id);
@@ -514,68 +520,80 @@
   }
 
   // ===========================================================
-  // Capa: cámaras (OSM/Overpass) — se pide por la zona visible del
-  // mapa, no de golpe para toda Argentina/el mundo (sería enorme y
-  // Overpass es un servicio compartido: hay que pedirle con cuidado).
+  // Helper genérico: capas que se piden a Overpass por la zona
+  // visible del mapa (no de golpe para todo el mundo, que sería
+  // enorme) — lo usan Cámaras e Infraestructura energética.
   // ===========================================================
-  var camsDS, camsEnabled = false, camsBusy = false, camsMoveEndListener = null, camsDebounceTimer = null;
-  var CAMS_MAX_HEIGHT_M = 400000; // por arriba de esta altura no se pide (bbox demasiado grande)
+  function makeViewportOverpassLayer(dsName, maxHeightM, buildQuery, renderResults, countElId, tooFarText) {
+    var ds = new Cesium.CustomDataSource(dsName);
+    viewer.dataSources.add(ds);
+    var enabled = false, busy = false, moveEndOff = null, debounceTimer = null;
 
-  function initCams(enabled) {
-    if (!camsDS) {
-      camsDS = new Cesium.CustomDataSource('cams');
-      viewer.dataSources.add(camsDS);
+    function load() {
+      if (!enabled || busy) return;
+      var countEl = document.getElementById(countElId);
+      var height = viewer.camera.positionCartographic.height;
+      if (height > maxHeightM) {
+        countEl.textContent = tooFarText;
+        ds.entities.removeAll();
+        return;
+      }
+      var rect = viewer.camera.computeViewRectangle(viewer.scene.globe.ellipsoid);
+      if (!rect) return;
+      var bbox = Cesium.Math.toDegrees(rect.south) + ',' + Cesium.Math.toDegrees(rect.west) + ',' +
+        Cesium.Math.toDegrees(rect.north) + ',' + Cesium.Math.toDegrees(rect.east);
+      busy = true;
+      countEl.textContent = 'Consultando OpenStreetMap…';
+      fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(buildQuery(bbox)) })
+        .then(function (r) { if (!r.ok) throw new Error('overpass'); return r.json(); })
+        .then(function (data) {
+          ds.entities.removeAll();
+          var elements = data.elements || [];
+          renderResults(ds, elements);
+          countEl.textContent = elements.length + ' resultados en la zona visible (OSM)';
+          busy = false;
+        })
+        .catch(function () {
+          countEl.textContent = 'No se pudo consultar Overpass ahora mismo.';
+          busy = false;
+        });
     }
-    camsEnabled = enabled;
-    camsDS.show = enabled;
-    if (!enabled) {
-      if (camsMoveEndListener) { camsMoveEndListener(); camsMoveEndListener = null; }
-      return;
-    }
-    loadCamsForView();
-    if (!camsMoveEndListener) {
-      var handler = function () {
-        clearTimeout(camsDebounceTimer);
-        camsDebounceTimer = setTimeout(loadCamsForView, 700);
-      };
-      viewer.camera.moveEnd.addEventListener(handler);
-      camsMoveEndListener = function () { viewer.camera.moveEnd.removeEventListener(handler); };
-    }
+
+    return {
+      set: function (v) {
+        enabled = v;
+        ds.show = v;
+        if (!v) { if (moveEndOff) { moveEndOff(); moveEndOff = null; } return; }
+        load();
+        if (!moveEndOff) {
+          var handler = function () { clearTimeout(debounceTimer); debounceTimer = setTimeout(load, 700); };
+          viewer.camera.moveEnd.addEventListener(handler);
+          moveEndOff = function () { viewer.camera.moveEnd.removeEventListener(handler); };
+        }
+      }
+    };
   }
 
-  function loadCamsForView() {
-    if (!camsEnabled || camsBusy) return;
-    var countEl = document.getElementById('cams-count');
-    var height = viewer.camera.positionCartographic.height;
-    if (height > CAMS_MAX_HEIGHT_M) {
-      countEl.textContent = 'Acercate más para ver cámaras (zona visible muy grande)';
-      camsDS.entities.removeAll();
-      return;
-    }
-    var rect = viewer.camera.computeViewRectangle(viewer.scene.globe.ellipsoid);
-    if (!rect) return;
-    var west = Cesium.Math.toDegrees(rect.west), south = Cesium.Math.toDegrees(rect.south);
-    var east = Cesium.Math.toDegrees(rect.east), north = Cesium.Math.toDegrees(rect.north);
-    var bbox = south + ',' + west + ',' + north + ',' + east;
-    var query = '[out:json][timeout:20];(' +
-      'node["man_made"="surveillance"](' + bbox + ');' +
-      'node["surveillance"](' + bbox + ');' +
-      'node["highway"="speed_camera"](' + bbox + ');' +
-      ');out body 300;';
-
-    camsBusy = true;
-    countEl.textContent = 'Buscando cámaras en la zona visible…';
-    fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(query) })
-      .then(function (r) { if (!r.ok) throw new Error('overpass'); return r.json(); })
-      .then(function (data) {
-        camsDS.entities.removeAll();
-        (data.elements || []).forEach(function (el) {
+  // ===========================================================
+  // Capa: cámaras (OSM/Overpass)
+  // ===========================================================
+  var camsLayer;
+  function initCams(enabled) {
+    if (!camsLayer) {
+      camsLayer = makeViewportOverpassLayer('cams', 400000, function (bbox) {
+        return '[out:json][timeout:20];(' +
+          'node["man_made"="surveillance"](' + bbox + ');' +
+          'node["surveillance"](' + bbox + ');' +
+          'node["highway"="speed_camera"](' + bbox + ');' +
+          ');out body 300;';
+      }, function (ds, elements) {
+        elements.forEach(function (el) {
           if (el.type !== 'node') return;
           var kind = el.tags.highway === 'speed_camera' ? 'Cámara de velocidad'
             : el.tags.surveillance === 'traffic' ? 'Cámara de tránsito'
             : el.tags.surveillance === 'public' ? 'Cámara de vigilancia pública'
             : 'Cámara (OSM)';
-          var e = camsDS.entities.add({
+          var e = ds.entities.add({
             position: Cesium.Cartesian3.fromDegrees(el.lon, el.lat),
             point: { pixelSize: 6, color: Cesium.Color.fromCssColorString('#ff4d6d'),
               outlineColor: Cesium.Color.BLACK, outlineWidth: 1, disableDepthTestDistance: Number.POSITIVE_INFINITY }
@@ -589,13 +607,138 @@
             ]
           };
         });
-        countEl.textContent = data.elements.length + ' cámaras en la zona visible (OSM)';
-        camsBusy = false;
+      }, 'cams-count', 'Acercate más para ver cámaras (zona visible muy grande)');
+    }
+    camsLayer.set(enabled);
+  }
+
+  // ===========================================================
+  // Capa: infraestructura energética (centrales, represas — OSM/Overpass)
+  // ===========================================================
+  var infraLayer;
+  function initInfra(enabled) {
+    if (!infraLayer) {
+      infraLayer = makeViewportOverpassLayer('infra', 600000, function (bbox) {
+        return '[out:json][timeout:20];(' +
+          'node["power"="plant"](' + bbox + ');way["power"="plant"](' + bbox + ');' +
+          'node["waterway"="dam"](' + bbox + ');way["waterway"="dam"](' + bbox + ');' +
+          'node["man_made"="dam"](' + bbox + ');way["man_made"="dam"](' + bbox + ');' +
+          ');out center 200;';
+      }, function (ds, elements) {
+        elements.forEach(function (el) {
+          var pos = el.type === 'node' ? el : el.center;
+          if (!pos) return;
+          var isDam = el.tags.waterway === 'dam' || el.tags.man_made === 'dam';
+          var kind = isDam ? 'Represa' : 'Central eléctrica' + (el.tags['plant:source'] ? ' (' + el.tags['plant:source'] + ')' : '');
+          var e = ds.entities.add({
+            position: Cesium.Cartesian3.fromDegrees(pos.lon, pos.lat),
+            point: { pixelSize: 7, color: Cesium.Color.fromCssColorString(isDam ? '#6fd1ff' : '#ffb84b'),
+              outlineColor: Cesium.Color.BLACK, outlineWidth: 1, disableDepthTestDistance: Number.POSITIVE_INFINITY }
+          });
+          e.__hud = {
+            title: el.tags.name || kind,
+            rows: [
+              ['Tipo', kind],
+              ['Fuente', el.tags['plant:source'] || '—'],
+              ['OSM', el.type + '/' + el.id]
+            ]
+          };
+        });
+      }, 'infra-count', 'Acercate más para ver infraestructura (zona visible muy grande)');
+    }
+    infraLayer.set(enabled);
+  }
+
+  // ===========================================================
+  // Capa: sismos recientes (USGS, sin clave, M2.5+ última semana)
+  // ===========================================================
+  var quakesDS;
+  function initQuakes(enabled) {
+    if (!quakesDS) {
+      quakesDS = new Cesium.CustomDataSource('quakes');
+      viewer.dataSources.add(quakesDS);
+      loadQuakes();
+      setInterval(loadQuakes, 5 * 60 * 1000);
+    }
+    quakesDS.show = enabled;
+  }
+
+  function loadQuakes() {
+    fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        quakesDS.entities.removeAll();
+        (data.features || []).forEach(function (f) {
+          var mag = f.properties.mag;
+          if (mag == null) return;
+          var c = f.geometry.coordinates; // [lon, lat, depth_km]
+          var color = mag >= 6 ? '#ff5b5b' : mag >= 5 ? '#ffb84b' : mag >= 4 ? '#ffe14b' : '#8fa0b8';
+          var e = quakesDS.entities.add({
+            position: Cesium.Cartesian3.fromDegrees(c[0], c[1]),
+            point: { pixelSize: 5 + mag * 2, color: Cesium.Color.fromCssColorString(color).withAlpha(0.75),
+              outlineColor: Cesium.Color.fromCssColorString(color), outlineWidth: 1.5,
+              disableDepthTestDistance: Number.POSITIVE_INFINITY }
+          });
+          e.__hud = {
+            title: 'M' + mag.toFixed(1) + ' · ' + f.properties.place,
+            rows: [
+              ['Profundidad', c[2].toFixed(0) + ' km'],
+              ['Hora (UTC)', new Date(f.properties.time).toISOString().slice(0, 16).replace('T', ' ')],
+              ['Fuente', 'USGS']
+            ]
+          };
+        });
       })
-      .catch(function () {
-        countEl.textContent = 'No se pudo consultar Overpass ahora mismo.';
-        camsBusy = false;
+      .catch(function () { /* capa queda vacía si USGS no responde */ });
+  }
+
+  // ===========================================================
+  // Capa: incendios activos (NASA FIRMS vía proxy — sin CORS directo)
+  // ===========================================================
+  var firesDS;
+  function initFires(enabled) {
+    if (!firesDS) {
+      firesDS = new Cesium.CustomDataSource('fires');
+      viewer.dataSources.add(firesDS);
+    }
+    firesDS.show = enabled;
+    if (!enabled) return;
+    loadFires();
+  }
+
+  function loadFires() {
+    var hintEl = document.getElementById('fires-hint');
+    fetch(PROXY + '/fires?bbox=-76,-56,-52,-20').then(function (r) {
+      if (!r.ok) throw new Error('proxy no disponible');
+      return r.json();
+    }).then(function (data) {
+      if (data.error) {
+        hintEl.textContent = 'Backend sin FIRMS_MAP_KEY configurada (ver README) — esta capa no tiene datos.';
+        hintEl.hidden = false;
+        return;
+      }
+      hintEl.hidden = true;
+      firesDS.entities.removeAll();
+      (data.items || []).forEach(function (fpt) {
+        var e = firesDS.entities.add({
+          position: Cesium.Cartesian3.fromDegrees(fpt.lon, fpt.lat),
+          point: { pixelSize: 6, color: Cesium.Color.fromCssColorString('#ff7a3d'),
+            outlineColor: Cesium.Color.fromCssColorString('#ffdd3d'), outlineWidth: 1.5,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY }
+        });
+        e.__hud = {
+          title: 'Foco de calor',
+          rows: [
+            ['Confianza', String(fpt.confidence || '—')],
+            ['FRP', (fpt.frp || '—') + ' MW'],
+            ['Fecha', fpt.date || '—'],
+            ['Fuente', 'NASA FIRMS (VIIRS)']
+          ]
+        };
       });
+    }).catch(function () {
+      hintEl.hidden = false;
+    });
   }
 
 })();

@@ -17,13 +17,28 @@ que el proyecto son dos partes que trabajan juntas:
 ## 🌐 Globo 3D (`globe.html`)
 
 Vista alternativa estilo HUD/cyberpunk sobre un globo 3D (CesiumJS), pensada como
-demo "God's Eye View": nubes GOES-16 en vivo, estaciones AR (Open-Meteo), vuelos
-en tiempo real (OpenSky, vía `smn_proxy.py` — CORS lo exige), satélites en órbita
-(CelesTrak + satellite.js) y cables submarinos (snapshot estático de TeleGeography
-en `data/submarine-cables.geo.json`, porque esa fuente no habilita CORS). Se accede
-desde el botón **Globo 3D** del mapa 2D, o abriendo `globe.html` directo. No
-requiere ninguna clave de API; si `smn_proxy.py` no está corriendo, la capa de
-vuelos simplemente queda vacía con un aviso, sin romper el resto.
+demo "God's Eye View", con estas capas:
+
+| Capa | Fuente | Notas |
+|------|--------|-------|
+| Nubes GOES-16 | NASA GIBS (WMS "best") | Sin clave |
+| Radar de lluvia | RainViewer | Sin clave |
+| Estaciones AR | Open-Meteo | Sin clave, 28 ciudades |
+| Vuelos en vivo | OpenSky | Vía `smn_proxy.py` — OpenSky no habilita CORS |
+| Satélites en órbita | CelesTrak TLE + satellite.js | Sin clave, ~270 objetos |
+| Cables submarinos | TeleGeography | Snapshot estático (`data/submarine-cables.geo.json`) — tampoco habilita CORS |
+| Cámaras | OSM/Overpass | Por la zona visible del mapa, sin clave |
+| Energía y represas | OSM/Overpass | Por la zona visible del mapa, sin clave |
+| Sismos (7 días) | USGS | Sin clave, M2.5+ |
+| Incendios activos | NASA FIRMS | Vía `smn_proxy.py` con `FIRMS_MAP_KEY` — FIRMS no habilita CORS y pide clave |
+
+Se accede desde el botón **Globo 3D** del mapa 2D, o abriendo `globe.html`
+directo. No requiere ninguna clave de API para funcionar de base — las capas que
+sí la piden (vuelos, incendios) quedan vacías con un aviso si el backend no está
+corriendo o no tiene la clave configurada, sin romper el resto del globo. La
+textura del planeta usa Esri directo por defecto; con una clave gratuita de
+[Cesium ion](https://ion.cesium.com/signup) (campo en el panel "Textura del
+globo") pasa a imagery + terreno 3D real servidos por su CDN, mucho más fluido.
 
 ---
 
@@ -116,6 +131,7 @@ antes de usar la app `window.SMN_PROXY_BASE = '/api';` (o la URL del proxy).
 | `SMN_ALERT_URL`   | `https://ws.smn.gob.ar/map_items/alert`     | Avisos / zonas de alerta (SMN).               |
 | `SMN_CITIES_URL`  | `https://ws.smn.gob.ar/cities`              | Ciudades con pronóstico (SMN).                |
 | `GOES_TILE_LAYER` | NASA GIBS WMS (se compone con z/x/y)        | Capa de satélite GOES-16 alternativa.         |
+| `FIRMS_MAP_KEY`   | *(vacío → capa de incendios deshabilitada)* | Clave gratuita de [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/api/map_key/) para la capa "Incendios activos" del globo 3D. |
 
 En Docker los valores se setean en el servicio `backend` del `docker-compose.yml`.
 

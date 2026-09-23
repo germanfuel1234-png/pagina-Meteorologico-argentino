@@ -22,6 +22,8 @@ services:
       PORT: "8000"
       # Ejemplo de capa de satélite GOES-16 alternativa (endpoint propio).
       # GOES_TILE_LAYER: "https://mi-servidor-goes/tiles/{z}/{x}/{y}.png"
+      # Clave gratuita de NASA FIRMS para la capa "Incendios activos" del globo 3D.
+      # FIRMS_MAP_KEY: "tu-clave-de-firms"
     depends_on:
       redis:
         condition: service_started

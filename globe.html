@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/cesium@1.120.0/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
-<link href="globe-style.css?v=2" rel="stylesheet">
+<link href="globe-style.css?v=3" rel="stylesheet">
 </head>
 <body class="globe-body">
 
@@ -74,6 +74,22 @@
     <input type="checkbox" class="hud-toggle" id="layer-cams">
   </div>
 
+  <div class="hud-layer">
+    <div class="hud-layer-name"><b>Energía y represas</b><small id="infra-count">OSM/Overpass · según la zona visible</small></div>
+    <input type="checkbox" class="hud-toggle" id="layer-infra">
+  </div>
+
+  <div class="hud-layer">
+    <div class="hud-layer-name"><b>Sismos (7 días)</b><small>USGS · M2.5+ · sin clave</small></div>
+    <input type="checkbox" class="hud-toggle" id="layer-quakes">
+  </div>
+
+  <div class="hud-layer">
+    <div class="hud-layer-name"><b>Incendios activos</b><small id="fires-hint-text">NASA FIRMS · vía proxy</small></div>
+    <input type="checkbox" class="hud-toggle" id="layer-fires">
+  </div>
+  <div class="hud-layer-hint" id="fires-hint" hidden>Requiere el backend con FIRMS_MAP_KEY configurada (ver README) — sin eso, esta capa no tiene datos.</div>
+
   <div class="hud-panel-title">Textura del globo</div>
   <div class="hud-settings">
     <p>Por defecto usa tiles de Esri directo (gratis, sin clave, pero puede tildarse al navegar). Con una clave gratuita de <a href="https://ion.cesium.com/signup" target="_blank" rel="noopener">Cesium ion</a> pasa a imagery + terreno 3D real servidos por su CDN — el mismo origen que usa el video, mucho más fluido.</p>
@@ -99,11 +115,13 @@
     <span><i style="background:#6fd1ff"></i>Estaciones</span>
     <span><i style="background:#7a5cff"></i>Cables</span>
     <span><i style="background:#ff4d6d"></i>Cámaras</span>
+    <span><i style="background:#ffe14b"></i>Sismos</span>
+    <span><i style="background:#ff7a3d"></i>Incendios</span>
   </div>
 </footer>
 
 <script src="https://unpkg.com/cesium@1.120.0/Build/Cesium/Cesium.js"></script>
 <script src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"></script>
-<script src="globe.js?v=3"></script>
+<script src="globe.js?v=5"></script>
 </body>
 </html>
