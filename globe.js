@@ -61,7 +61,7 @@
   // Estado global
   // ===========================================================
   var viewer, satPoints, satRecords = [];
-  var flightsDS, cablesDS;
+  var cablesDS;
   var goesLayer = null, radarLayer = null;
   var infoEl, infoTitleEl, infoBodyEl;
 
@@ -117,6 +117,7 @@
     wireLayerToggles();
 
     initGoesLayer(true);
+    initWorldClouds(false);
     initStations(true);
     initSatellites(true);
     initCables(false);
@@ -225,11 +226,12 @@
   // ===========================================================
   function wireLayerToggles() {
     on('layer-goes', function (v) { if (goesLayer) goesLayer.show = v; });
+    on('layer-world-clouds', function (v) { if (worldCloudsLayer) worldCloudsLayer.show = v; });
     on('layer-radar', function (v) { initRadarLayer(v); });
     on('layer-stations', function (v) { if (stationsDS) stationsDS.show = v; });
     on('layer-satellites', function (v) { if (satPoints) satPoints.show = v; });
     on('layer-cables', function (v) { initCables(v); if (cablesDS) cablesDS.show = v; });
-    on('layer-flights', function (v) { initFlights(v); if (flightsDS) flightsDS.show = v; });
+    on('layer-flights', function (v) { initFlights(v); });
     on('layer-cams', function (v) { initCams(v); });
     on('layer-infra', function (v) { initInfra(v); });
     on('layer-quakes', function (v) { initQuakes(v); });
@@ -262,6 +264,32 @@
       goesLayer = viewer.imageryLayers.addImageryProvider(provider);
       goesLayer.alpha = 0.85;
       goesLayer.show = enabled !== false && document.getElementById('layer-goes').checked;
+      if (prev) viewer.imageryLayers.remove(prev, true);
+    }
+  }
+
+  // ===========================================================
+  // Capa: nubes mundo (NASA GIBS, VIIRS truecolor diario — GOES-16
+  // solo cubre América; esta es la única capa de nubes con
+  // cobertura de planeta entero en GIBS, aunque no es tiempo real).
+  // ===========================================================
+  var worldCloudsLayer = null;
+  function initWorldClouds(enabled) {
+    add();
+    setInterval(add, 60 * 60 * 1000); // el composite diario cambia una vez por día
+    function add() {
+      var prev = worldCloudsLayer;
+      var provider = new Cesium.WebMapServiceImageryProvider({
+        url: 'https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi',
+        layers: 'VIIRS_SNPP_CorrectedReflectance_TrueColor',
+        parameters: { service: 'WMS', version: '1.1.1', transparent: true, format: 'image/png' },
+        tilingScheme: new Cesium.WebMercatorTilingScheme(),
+        credit: 'NASA GIBS · VIIRS SNPP True Color (diario, mundial)',
+        maximumLevel: 8
+      });
+      worldCloudsLayer = viewer.imageryLayers.addImageryProvider(provider);
+      worldCloudsLayer.alpha = 0.85;
+      worldCloudsLayer.show = enabled !== false && document.getElementById('layer-world-clouds').checked;
       if (prev) viewer.imageryLayers.remove(prev, true);
     }
   }
@@ -446,28 +474,31 @@
   }
 
   // ===========================================================
-  // Capa: vuelos en vivo (OpenSky vía proxy backend — CORS lo exige)
+  // Capa: vuelos en vivo, todo el mundo (OpenSky vía proxy backend
+  // — CORS lo exige). Miles de aviones a la vez: se usa la misma
+  // técnica liviana de puntos que los satélites, no Entities con
+  // etiqueta fija (sería ilegible y pesado a escala global).
   // ===========================================================
-  var flightsPollTimer = null;
+  var flightPoints, flightPointsMap = {}, flightsPollTimer = null;
   function initFlights(enabled) {
-    if (!flightsDS) {
-      flightsDS = new Cesium.CustomDataSource('flights');
-      viewer.dataSources.add(flightsDS);
+    if (!flightPoints) {
+      flightPoints = viewer.scene.primitives.add(new Cesium.PointPrimitiveCollection());
     }
-    flightsDS.show = enabled;
+    flightPoints.show = enabled;
     if (!enabled) { if (flightsPollTimer) clearInterval(flightsPollTimer); return; }
     loadFlights();
     if (flightsPollTimer) clearInterval(flightsPollTimer);
-    flightsPollTimer = setInterval(loadFlights, 30000);
+    flightsPollTimer = setInterval(loadFlights, 45000);
   }
 
   function loadFlights() {
-    var url = PROXY + '/flights?lamin=-56&lomin=-76&lamax=-20&lomax=-52';
+    var url = PROXY + '/flights?lamin=-90&lomin=-180&lamax=90&lomax=180';
     fetch(url).then(function (r) {
       if (!r.ok) throw new Error('proxy no disponible');
       return r.json();
     }).then(function (data) {
       document.getElementById('flights-hint').hidden = true;
+      document.getElementById('flights-hint-text').textContent = 'OpenSky · vía proxy · mundial';
       var states = data && data.states || [];
       var seen = {};
       states.forEach(function (s) {
@@ -475,8 +506,7 @@
           onGround = s[8], velocity = s[9], track = s[10], geoAlt = s[13] || s[7];
         if (lon == null || lat == null || onGround) return;
         seen[icao] = true;
-        var existing = flightsDS.entities.getById(icao);
-        var alt = Math.round((geoAlt || 0));
+        var alt = Math.round(geoAlt || 0);
         var kts = Math.round((velocity || 0) * 1.94384);
         var hudData = {
           title: callsign,
@@ -488,32 +518,25 @@
             ['Fuente', 'OpenSky Network']
           ]
         };
-        if (existing) {
-          existing.position = Cesium.Cartesian3.fromDegrees(lon, lat, geoAlt || 8000);
-          if (existing.billboard) existing.billboard.rotation = Cesium.Math.toRadians(-(track || 0));
-          existing.__hud = hudData;
-        } else {
-          var e = flightsDS.entities.add({
-            id: icao,
+        var point = flightPointsMap[icao];
+        if (!point) {
+          point = flightPoints.add({
             position: Cesium.Cartesian3.fromDegrees(lon, lat, geoAlt || 8000),
-            point: { pixelSize: 6, color: Cesium.Color.fromCssColorString('#ffb84b'),
-              outlineColor: Cesium.Color.BLACK, outlineWidth: 1, disableDepthTestDistance: Number.POSITIVE_INFINITY },
-            label: {
-              text: callsign, font: '10px "JetBrains Mono", monospace',
-              fillColor: Cesium.Color.fromCssColorString('#ffb84b'),
-              outlineColor: Cesium.Color.BLACK, outlineWidth: 3, style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-              pixelOffset: new Cesium.Cartesian2(10, 0), horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
-              disableDepthTestDistance: Number.POSITIVE_INFINITY,
-              scaleByDistance: new Cesium.NearFarScalar(1.0e5, 1.0, 3.0e6, 0.0)
-            }
+            pixelSize: 5, color: Cesium.Color.fromCssColorString('#ffb84b'),
+            outlineColor: Cesium.Color.BLACK, outlineWidth: 1, disableDepthTestDistance: Number.POSITIVE_INFINITY
           });
-          e.__hud = hudData;
+          flightPointsMap[icao] = point;
+        } else {
+          point.position = Cesium.Cartesian3.fromDegrees(lon, lat, geoAlt || 8000);
         }
+        point.__hud = hudData;
       });
-      // limpiar vuelos que salieron del bbox / dejaron de reportar
-      flightsDS.entities.values.slice().forEach(function (e) {
-        if (!seen[e.id]) flightsDS.entities.remove(e);
+      // limpiar vuelos que salieron del área o dejaron de reportar
+      Object.keys(flightPointsMap).forEach(function (icao) {
+        if (!seen[icao]) { flightPoints.remove(flightPointsMap[icao]); delete flightPointsMap[icao]; }
       });
+      var countEl = document.getElementById('flights-hint-text');
+      if (countEl) countEl.textContent = states.length + ' vuelos en el aire (OpenSky, mundial)';
     }).catch(function () {
       document.getElementById('flights-hint').hidden = false;
     });
@@ -693,22 +716,23 @@
   }
 
   // ===========================================================
-  // Capa: incendios activos (NASA FIRMS vía proxy — sin CORS directo)
+  // Capa: incendios activos, todo el mundo (NASA FIRMS vía proxy —
+  // sin CORS directo). Puede haber decenas de miles de focos en
+  // temporada de incendios: se usan puntos livianos, no Entities.
   // ===========================================================
-  var firesDS;
+  var firePoints;
   function initFires(enabled) {
-    if (!firesDS) {
-      firesDS = new Cesium.CustomDataSource('fires');
-      viewer.dataSources.add(firesDS);
+    if (!firePoints) {
+      firePoints = viewer.scene.primitives.add(new Cesium.PointPrimitiveCollection());
     }
-    firesDS.show = enabled;
+    firePoints.show = enabled;
     if (!enabled) return;
     loadFires();
   }
 
   function loadFires() {
     var hintEl = document.getElementById('fires-hint');
-    fetch(PROXY + '/fires?bbox=-76,-56,-52,-20').then(function (r) {
+    fetch(PROXY + '/fires?bbox=-180,-90,180,90').then(function (r) {
       if (!r.ok) throw new Error('proxy no disponible');
       return r.json();
     }).then(function (data) {
@@ -718,15 +742,17 @@
         return;
       }
       hintEl.hidden = true;
-      firesDS.entities.removeAll();
+      var countText = document.getElementById('fires-hint-text');
+      if (countText) countText.textContent = (data.items || []).length + ' focos activos (FIRMS, mundial)';
+      firePoints.removeAll();
       (data.items || []).forEach(function (fpt) {
-        var e = firesDS.entities.add({
+        var point = firePoints.add({
           position: Cesium.Cartesian3.fromDegrees(fpt.lon, fpt.lat),
-          point: { pixelSize: 6, color: Cesium.Color.fromCssColorString('#ff7a3d'),
-            outlineColor: Cesium.Color.fromCssColorString('#ffdd3d'), outlineWidth: 1.5,
-            disableDepthTestDistance: Number.POSITIVE_INFINITY }
+          pixelSize: 4, color: Cesium.Color.fromCssColorString('#ff7a3d'),
+          outlineColor: Cesium.Color.fromCssColorString('#ffdd3d'), outlineWidth: 1,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
         });
-        e.__hud = {
+        point.__hud = {
           title: 'Foco de calor',
           rows: [
             ['Confianza', String(fpt.confidence || '—')],

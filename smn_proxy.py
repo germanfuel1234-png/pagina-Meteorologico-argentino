@@ -151,8 +151,11 @@ async def get_flights(lamin: float = -56, lomin: float = -76, lamax: float = -20
     llamarla directo: este proxy la consulta server-to-server y sí devuelve
     Access-Control-Allow-Origin (middleware global de este archivo).
     """
+    # TTL más largo que otros endpoints: una consulta mundial (todo el
+    # globo) le cuesta más créditos a OpenSky que una acotada, y el límite
+    # anónimo es compartido por todas las pestañas que tengan el globo abierto.
     cache_key = f"flights_{lamin}_{lomin}_{lamax}_{lomax}"
-    if cache_key in cache and time.time() - cache[cache_key]["ts"] < 20:
+    if cache_key in cache and time.time() - cache[cache_key]["ts"] < 45:
         return JSONResponse(cache[cache_key]["data"])
 
     url = (
@@ -175,6 +178,7 @@ async def get_flights(lamin: float = -56, lomin: float = -76, lamax: float = -20
 # 4c. PROXY DE INCENDIOS ACTIVOS (NASA FIRMS - CORS lo exige + clave)
 # ============================================================
 FIRMS_MAP_KEY = os.environ.get("FIRMS_MAP_KEY", "")
+FIRES_MAX_ITEMS = 8000
 
 @app.get("/api/fires")
 async def get_fires(bbox: str = "-76,-56,-52,-20", days: int = 1):
@@ -208,6 +212,8 @@ async def get_fires(bbox: str = "-76,-56,-52,-20", days: int = 1):
                 reader = csv.DictReader(io.StringIO(text))
                 items = []
                 for row in reader:
+                    if len(items) >= FIRES_MAX_ITEMS:
+                        break  # en temporada de incendios puede haber decenas de miles a nivel mundial
                     try:
                         items.append({
                             "lat": float(row.get("latitude", 0)),

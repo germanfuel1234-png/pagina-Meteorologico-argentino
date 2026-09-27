@@ -39,8 +39,13 @@
   <div class="hud-panel-title">Capas de datos</div>
 
   <div class="hud-layer">
-    <div class="hud-layer-name"><b>Nubes GOES-16</b><small>NASA GIBS · sin clave</small></div>
+    <div class="hud-layer-name"><b>Nubes GOES-16</b><small>NASA GIBS · América · tiempo casi real</small></div>
     <input type="checkbox" class="hud-toggle" id="layer-goes" checked>
+  </div>
+
+  <div class="hud-layer">
+    <div class="hud-layer-name"><b>Nubes mundo</b><small>NASA GIBS · VIIRS · compuesto diario</small></div>
+    <input type="checkbox" class="hud-toggle" id="layer-world-clouds">
   </div>
 
   <div class="hud-layer">
@@ -54,7 +59,7 @@
   </div>
 
   <div class="hud-layer">
-    <div class="hud-layer-name"><b>Vuelos en vivo</b><small id="flights-hint-text">OpenSky · vía proxy</small></div>
+    <div class="hud-layer-name"><b>Vuelos en vivo</b><small id="flights-hint-text">OpenSky · vía proxy · mundial</small></div>
     <input type="checkbox" class="hud-toggle" id="layer-flights">
   </div>
   <div class="hud-layer-hint" id="flights-hint" hidden>Requiere el backend (smn_proxy.py) corriendo — sin él, esta capa no tiene datos.</div>
@@ -85,7 +90,7 @@
   </div>
 
   <div class="hud-layer">
-    <div class="hud-layer-name"><b>Incendios activos</b><small id="fires-hint-text">NASA FIRMS · vía proxy</small></div>
+    <div class="hud-layer-name"><b>Incendios activos</b><small id="fires-hint-text">NASA FIRMS · vía proxy · mundial</small></div>
     <input type="checkbox" class="hud-toggle" id="layer-fires">
   </div>
   <div class="hud-layer-hint" id="fires-hint" hidden>Requiere el backend con FIRMS_MAP_KEY configurada (ver README) — sin eso, esta capa no tiene datos.</div>
@@ -122,6 +127,6 @@
 
 <script src="https://unpkg.com/cesium@1.120.0/Build/Cesium/Cesium.js"></script>
 <script src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"></script>
-<script src="globe.js?v=5"></script>
+<script src="globe.js?v=6"></script>
 </body>
 </html>
