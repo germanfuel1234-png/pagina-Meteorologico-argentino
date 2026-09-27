@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/cesium@1.120.0/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
-<link href="globe-style.css?v=3" rel="stylesheet">
+<link href="globe-style.css?v=4" rel="stylesheet">
 </head>
 <body class="globe-body">
 
@@ -65,6 +65,11 @@
   <div class="hud-layer-hint" id="flights-hint" hidden>Requiere el backend (smn_proxy.py) corriendo — sin él, esta capa no tiene datos.</div>
 
   <div class="hud-layer">
+    <div class="hud-layer-name"><b>Vuelos militares</b><small id="mil-count">adsb.lol · sin clave · mundial</small></div>
+    <input type="checkbox" class="hud-toggle" id="layer-military">
+  </div>
+
+  <div class="hud-layer">
     <div class="hud-layer-name"><b>Satélites</b><small>CelesTrak TLE · satellite.js</small></div>
     <input type="checkbox" class="hud-toggle" id="layer-satellites" checked>
   </div>
@@ -117,6 +122,7 @@
   <div class="hud-legend">
     <span><i style="background:#4bffd6"></i>Satélites</span>
     <span><i style="background:#ffb84b"></i>Vuelos</span>
+    <span><i style="background:#c9a227"></i>Militares</span>
     <span><i style="background:#6fd1ff"></i>Estaciones</span>
     <span><i style="background:#7a5cff"></i>Cables</span>
     <span><i style="background:#ff4d6d"></i>Cámaras</span>
@@ -127,6 +133,10 @@
 
 <script src="https://unpkg.com/cesium@1.120.0/Build/Cesium/Cesium.js"></script>
 <script src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"></script>
-<script src="globe.js?v=6"></script>
+<!-- Clave de Cesium ion solo para tu máquina (ver local-ion-key.js, en .gitignore).
+     Si el archivo no existe (ej. en GitHub Pages) esta línea simplemente falla
+     en silencio y el globo sigue con Esri directo, sin romper nada. -->
+<script src="local-ion-key.js" onerror="void 0"></script>
+<script src="globe.js?v=9"></script>
 </body>
 </html>

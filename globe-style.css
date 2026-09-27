@@ -214,6 +214,8 @@ body.globe-body {
   transition: opacity .15s, transform .15s;
 }
 .hud-info.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+.hud-info.is-tracking { border-color: var(--g-amber); box-shadow: 0 0 18px rgba(255,184,75,.25); }
+.hud-info.is-tracking .hud-info-title::before { content: '● SIGUIENDO · '; color: var(--g-amber); font-size: 9px; letter-spacing: .08em; }
 .hud-info-title { color: var(--g-cyan); font-weight: 700; letter-spacing: .05em; margin-bottom: 4px; font-size: 12px; }
 .hud-info-row { display: flex; justify-content: space-between; gap: 12px; color: var(--g-text); padding: 1px 0; }
 .hud-info-row span:first-child { color: var(--g-muted); }

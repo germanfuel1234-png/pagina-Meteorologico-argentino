@@ -122,6 +122,7 @@
     initSatellites(true);
     initCables(false);
     initFlights(false);
+    initMilitary(false);
     initCams(false);
     initInfra(false);
     initQuakes(false);
@@ -161,7 +162,7 @@
       var picked = viewer.scene.pick(click.position);
       if (!picked) { hideInfo(); return; }
       var data = (picked.id && picked.id.__hud) || picked.__hud;
-      if (data) showInfo(data); else hideInfo();
+      if (data) { showInfo(data); trackPicked(picked); } else { hideInfo(); }
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
   }
 
@@ -172,7 +173,39 @@
     }).join('');
     infoEl.classList.add('is-visible');
   }
-  function hideInfo() { infoEl.classList.remove('is-visible'); }
+  function hideInfo() { infoEl.classList.remove('is-visible'); stopTracking(); }
+
+  // ===========================================================
+  // Click-to-track: engancha la cámara al objeto clickeado (avión,
+  // satélite, barco...) y lo sigue mientras se mueve, reusando el
+  // trackedEntity nativo de Cesium — funciona igual para Entities
+  // (cámaras, energía, estaciones) y para PointPrimitives sueltos
+  // (vuelos, militares, satélites, incendios), sin reimplementar
+  // la cámara a mano.
+  // ===========================================================
+  var trackerEntity;
+  function trackPicked(picked) {
+    var getPosition;
+    if (picked.id && picked.id.position) {
+      var entity = picked.id;
+      getPosition = function (time) { return entity.position.getValue(time); };
+    } else if (picked.position) {
+      getPosition = function () { return picked.position; };
+    } else {
+      return; // ej. una polilínea de cable: no hay un único punto que seguir
+    }
+    if (!trackerEntity) {
+      trackerEntity = viewer.entities.add({ name: 'tracker' });
+    }
+    trackerEntity.position = new Cesium.CallbackProperty(getPosition, false);
+    viewer.trackedEntity = trackerEntity;
+    document.getElementById('hud-info').classList.add('is-tracking');
+  }
+  function stopTracking() {
+    if (viewer.trackedEntity) viewer.trackedEntity = undefined;
+    var infoEl2 = document.getElementById('hud-info');
+    if (infoEl2) infoEl2.classList.remove('is-tracking');
+  }
 
   // ===========================================================
   // Textura base del globo: Esri directo (gratis, sin clave) por
@@ -180,7 +213,17 @@
   // por imagery + terreno servidos por el CDN de ion (más fluido,
   // el mismo origen que usa el video).
   // ===========================================================
-  function ionKey() { try { return (localStorage.getItem('cesiumIonKey') || '').trim(); } catch (e) { return ''; } }
+  function ionKey() {
+    try {
+      var stored = (localStorage.getItem('cesiumIonKey') || '').trim();
+      if (stored) return stored;
+      // Fallback: clave local del desarrollador (local-ion-key.js, en .gitignore,
+      // nunca se sube al repo). Si existe, se copia a localStorage una sola vez.
+      var fallback = (window.CESIUM_ION_KEY_DEFAULT || '').trim();
+      if (fallback) { localStorage.setItem('cesiumIonKey', fallback); return fallback; }
+      return '';
+    } catch (e) { return ''; }
+  }
 
   function wireIonKey() {
     var input = document.getElementById('ion-key');
@@ -232,6 +275,7 @@
     on('layer-satellites', function (v) { if (satPoints) satPoints.show = v; });
     on('layer-cables', function (v) { initCables(v); if (cablesDS) cablesDS.show = v; });
     on('layer-flights', function (v) { initFlights(v); });
+    on('layer-military', function (v) { initMilitary(v); });
     on('layer-cams', function (v) { initCams(v); });
     on('layer-infra', function (v) { initInfra(v); });
     on('layer-quakes', function (v) { initQuakes(v); });
@@ -540,6 +584,68 @@
     }).catch(function () {
       document.getElementById('flights-hint').hidden = false;
     });
+  }
+
+  // ===========================================================
+  // Capa: vuelos militares (adsb.lol, sin clave, CORS abierto —
+  // a diferencia de OpenSky, esta se pide directo desde el
+  // navegador, sin pasar por el backend).
+  // ===========================================================
+  var milPoints, milPointsMap = {}, milPollTimer = null;
+  function initMilitary(enabled) {
+    if (!milPoints) {
+      milPoints = viewer.scene.primitives.add(new Cesium.PointPrimitiveCollection());
+    }
+    milPoints.show = enabled;
+    if (!enabled) { if (milPollTimer) clearInterval(milPollTimer); return; }
+    loadMilitary();
+    if (milPollTimer) clearInterval(milPollTimer);
+    milPollTimer = setInterval(loadMilitary, 30000);
+  }
+
+  function loadMilitary() {
+    var countEl = document.getElementById('mil-count');
+    fetch('https://api.adsb.lol/v2/mil')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var aircraft = data.ac || [];
+        var seen = {};
+        aircraft.forEach(function (a) {
+          var hex = a.hex, lon = a.lon, lat = a.lat;
+          if (hex == null || lon == null || lat == null) return;
+          seen[hex] = true;
+          var altFt = a.alt_baro === 'ground' ? 0 : (a.alt_baro || 0);
+          var hudData = {
+            title: (a.flight || hex).trim(),
+            rows: [
+              ['Altitud', Math.round(altFt) + ' ft'],
+              ['Velocidad', Math.round(a.gs || 0) + ' kts'],
+              ['Tipo', a.t || '—'],
+              ['Operador', a.ownOp || '—'],
+              ['Fuente', 'adsb.lol (militar)']
+            ]
+          };
+          var point = milPointsMap[hex];
+          if (!point) {
+            point = milPoints.add({
+              position: Cesium.Cartesian3.fromDegrees(lon, lat, altFt * 0.3048),
+              pixelSize: 5, color: Cesium.Color.fromCssColorString('#c9a227'),
+              outlineColor: Cesium.Color.BLACK, outlineWidth: 1, disableDepthTestDistance: Number.POSITIVE_INFINITY
+            });
+            milPointsMap[hex] = point;
+          } else {
+            point.position = Cesium.Cartesian3.fromDegrees(lon, lat, altFt * 0.3048);
+          }
+          point.__hud = hudData;
+        });
+        Object.keys(milPointsMap).forEach(function (hex) {
+          if (!seen[hex]) { milPoints.remove(milPointsMap[hex]); delete milPointsMap[hex]; }
+        });
+        if (countEl) countEl.textContent = aircraft.length + ' vuelos militares (adsb.lol, mundial)';
+      })
+      .catch(function () {
+        if (countEl) countEl.textContent = 'No se pudo consultar adsb.lol ahora mismo.';
+      });
   }
 
   // ===========================================================

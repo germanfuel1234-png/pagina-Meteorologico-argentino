@@ -21,24 +21,38 @@ demo "God's Eye View", con estas capas:
 
 | Capa | Fuente | Notas |
 |------|--------|-------|
-| Nubes GOES-16 | NASA GIBS (WMS "best") | Sin clave |
+| Nubes GOES-16 | NASA GIBS (WMS "best") | Sin clave · solo América, tiempo casi real |
+| Nubes mundo | NASA GIBS (VIIRS truecolor) | Sin clave · compuesto diario, cobertura global |
 | Radar de lluvia | RainViewer | Sin clave |
-| Estaciones AR | Open-Meteo | Sin clave, 28 ciudades |
-| Vuelos en vivo | OpenSky | Vía `smn_proxy.py` — OpenSky no habilita CORS |
+| Estaciones AR | Open-Meteo | Sin clave, 28 ciudades argentinas |
+| Vuelos en vivo | OpenSky | Vía `smn_proxy.py` — OpenSky no habilita CORS · mundial |
+| Vuelos militares | adsb.lol | Sin clave, sin backend — CORS abierto · mundial |
 | Satélites en órbita | CelesTrak TLE + satellite.js | Sin clave, ~270 objetos |
 | Cables submarinos | TeleGeography | Snapshot estático (`data/submarine-cables.geo.json`) — tampoco habilita CORS |
 | Cámaras | OSM/Overpass | Por la zona visible del mapa, sin clave |
 | Energía y represas | OSM/Overpass | Por la zona visible del mapa, sin clave |
-| Sismos (7 días) | USGS | Sin clave, M2.5+ |
-| Incendios activos | NASA FIRMS | Vía `smn_proxy.py` con `FIRMS_MAP_KEY` — FIRMS no habilita CORS y pide clave |
+| Sismos (7 días) | USGS | Sin clave, M2.5+, mundial |
+| Incendios activos | NASA FIRMS | Vía `smn_proxy.py` con `FIRMS_MAP_KEY` — FIRMS no habilita CORS y pide clave · mundial |
 
 Se accede desde el botón **Globo 3D** del mapa 2D, o abriendo `globe.html`
 directo. No requiere ninguna clave de API para funcionar de base — las capas que
-sí la piden (vuelos, incendios) quedan vacías con un aviso si el backend no está
-corriendo o no tiene la clave configurada, sin romper el resto del globo. La
-textura del planeta usa Esri directo por defecto; con una clave gratuita de
-[Cesium ion](https://ion.cesium.com/signup) (campo en el panel "Textura del
-globo") pasa a imagery + terreno 3D real servidos por su CDN, mucho más fluido.
+sí la piden (vuelos por OpenSky, incendios) quedan vacías con un aviso si el
+backend no está corriendo o no tiene la clave configurada, sin romper el resto
+del globo. La textura del planeta usa Esri directo por defecto; con una clave
+gratuita de [Cesium ion](https://ion.cesium.com/signup) (campo en el panel
+"Textura del globo") pasa a imagery + terreno 3D real servidos por su CDN,
+mucho más fluido — para no tener que pegarla cada vez, se puede guardar en un
+archivo local `local-ion-key.js` (ver plantilla en el repo, listado en
+`.gitignore`: nunca se sube a GitHub).
+
+**Click para "engancharse":** clickear cualquier avión, satélite, estación o
+cámara hace que la cámara lo siga (usa el `trackedEntity` nativo de Cesium);
+cerrar la tarjeta de info o clickear en el vacío lo suelta. Vuelos, satélites,
+militares e incendios se renderizan como `PointPrimitiveCollection` (no
+`Entity`) por volumen — el globo real ([bilawalsidhu/gods-eye-view](https://github.com/bilawalsidhu/gods-eye-view),
+la referencia detrás del video) es 100% JavaScript vanilla + CesiumJS + Vite,
+sin backend propio salvo para esconder claves pagas — así que no hace falta
+migrar nada a Python; `smn_proxy.py` ya cumple ese mismo rol para OpenSky y FIRMS.
 
 ---
 

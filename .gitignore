@@ -1,0 +1,11 @@
+# Claves y secretos locales — nunca se suben al repo público
+local-ion-key.js
+.env
+
+# Entornos y cachés de Python
+venv/
+__pycache__/
+*.pyc
+
+# Tooling local de Claude Code
+.claude/
