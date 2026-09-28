@@ -24,8 +24,7 @@ demo "God's Eye View", con estas capas:
 | Nubes GOES-16 | NASA GIBS (WMS "best") | Sin clave · solo América, tiempo casi real |
 | Nubes mundo | NASA GIBS (VIIRS truecolor) | Sin clave · compuesto diario, cobertura global |
 | Radar de lluvia | RainViewer | Sin clave |
-| Estaciones AR | Open-Meteo | Sin clave, 28 ciudades argentinas |
-| Vuelos en vivo | OpenSky | Vía `smn_proxy.py` — OpenSky no habilita CORS · mundial |
+| Vuelos en vivo | OpenSky | Vía `smn_proxy.py` — OpenSky no habilita CORS · mundial · movimiento suavizado (dead reckoning) entre polls |
 | Vuelos militares | adsb.lol | Sin clave, sin backend — CORS abierto · mundial |
 | Satélites en órbita | CelesTrak TLE + satellite.js | Sin clave, ~270 objetos |
 | Cables submarinos | TeleGeography | Snapshot estático (`data/submarine-cables.geo.json`) — tampoco habilita CORS |
@@ -45,14 +44,24 @@ mucho más fluido — para no tener que pegarla cada vez, se puede guardar en un
 archivo local `local-ion-key.js` (ver plantilla en el repo, listado en
 `.gitignore`: nunca se sube a GitHub).
 
-**Click para "engancharse":** clickear cualquier avión, satélite, estación o
-cámara hace que la cámara lo siga (usa el `trackedEntity` nativo de Cesium);
-cerrar la tarjeta de info o clickear en el vacío lo suelta. Vuelos, satélites,
-militares e incendios se renderizan como `PointPrimitiveCollection` (no
-`Entity`) por volumen — el globo real ([bilawalsidhu/gods-eye-view](https://github.com/bilawalsidhu/gods-eye-view),
+**Click para "engancharse":** clickear cualquier avión, satélite, militar o
+cámara hace que la cámara lo siga (usa el `trackedEntity` nativo de Cesium) y
+tiñe el punto de cyan (mismo criterio de color que el proyecto real: cyan =
+trackeado); cerrar la tarjeta de info o clickear en el vacío lo suelta y
+restaura el color. Vuelos, satélites, militares e incendios se renderizan
+como `PointPrimitiveCollection` (no `Entity`) por volumen — el globo real
+([bilawalsidhu/gods-eye-view](https://github.com/bilawalsidhu/gods-eye-view),
 la referencia detrás del video) es 100% JavaScript vanilla + CesiumJS + Vite,
 sin backend propio salvo para esconder claves pagas — así que no hace falta
 migrar nada a Python; `smn_proxy.py` ya cumple ese mismo rol para OpenSky y FIRMS.
+
+**Vuelos sin saltos:** el proyecto real logra movimiento suave renderizando
+30s "detrás" del tiempo real para interpolar siempre entre dos fixes
+conocidos (visto en su código fuente, `src/layers/flights/motion.js`).
+Nuestro poll cada 45s no deja margen para ese delay, así que en cambio cada
+avión se proyecta hacia adelante por dead reckoning (rumbo + velocidad
+reportados, marco ENU de Cesium) y, cuando llega un fix real nuevo, blendea
+desde la posición actual hacia la nueva en 1.5s en vez de saltar.
 
 ---
 

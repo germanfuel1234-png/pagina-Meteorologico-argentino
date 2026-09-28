@@ -1,10 +1,11 @@
 /* ===========================================================
    Globo 3D · God's Eye View — CesiumJS
    Vista experimental en paralelo al mapa 2D del SMN (index.html).
-   Capas: nubes GOES-16 (GIBS), radar (RainViewer), estaciones AR
-   (Open-Meteo), vuelos (OpenSky vía proxy), satélites (CelesTrak +
-   satellite.js), cables submarinos (snapshot estático TeleGeography)
-   y cámaras (OSM/Overpass, por la zona visible del mapa).
+   Capas: nubes GOES-16 (GIBS), radar (RainViewer), vuelos (OpenSky
+   vía proxy, con dead reckoning para movimiento suave entre polls),
+   satélites (CelesTrak + satellite.js), cables submarinos (snapshot
+   estático TeleGeography) y cámaras (OSM/Overpass, por la zona
+   visible del mapa).
    Todas las capas se degradan solas (quedan vacías) si su fuente
    no responde, sin romper el resto del globo.
    =========================================================== */
@@ -23,33 +24,6 @@
     return '/api';
   }
   var PROXY = proxyBase();
-
-  // ---------------------------------------------------------
-  // Estaciones AR (coordenadas de capitales provinciales)
-  // ---------------------------------------------------------
-  var AR_CITIES = [
-    ['Buenos Aires', -34.6037, -58.3816], ['Córdoba', -31.4201, -64.1888],
-    ['Rosario', -32.9587, -60.6930], ['Mendoza', -32.8895, -68.8458],
-    ['La Plata', -34.9215, -57.9545], ['San Miguel de Tucumán', -26.8083, -65.2176],
-    ['Mar del Plata', -38.0055, -57.5426], ['Salta', -24.7859, -65.4117],
-    ['Santa Fe', -31.6333, -60.7000], ['San Juan', -31.5375, -68.5364],
-    ['Resistencia', -27.4514, -58.9867], ['Neuquén', -38.9516, -68.0591],
-    ['Santiago del Estero', -27.7834, -64.2642], ['Corrientes', -27.4692, -58.8306],
-    ['Posadas', -27.3671, -55.8961], ['Bahía Blanca', -38.7196, -62.2724],
-    ['Paraná', -31.7333, -60.5238], ['Formosa', -26.1775, -58.1781],
-    ['San Salvador de Jujuy', -24.1858, -65.2995], ['Río Gallegos', -51.6230, -69.2168],
-    ['Ushuaia', -54.8019, -68.3030], ['San Carlos de Bariloche', -41.1335, -71.3103],
-    ['Comodoro Rivadavia', -45.8641, -67.4966], ['La Rioja', -29.4131, -66.8558],
-    ['San Fernando del Valle de Catamarca', -28.4696, -65.7852], ['Viedma', -40.8135, -62.9967],
-    ['Rawson', -43.3002, -65.1023], ['Santa Rosa', -36.6167, -64.2833]
-  ];
-
-  var WMO_LABEL = {
-    0: 'despejado', 1: 'mayormente despejado', 2: 'parcial nublado', 3: 'nublado',
-    45: 'niebla', 48: 'niebla escarcha', 51: 'llovizna débil', 53: 'llovizna', 55: 'llovizna intensa',
-    61: 'lluvia débil', 63: 'lluvia', 65: 'lluvia intensa', 71: 'nieve débil', 73: 'nieve', 75: 'nieve intensa',
-    80: 'chubascos', 81: 'chubascos', 82: 'chubascos intensos', 95: 'tormenta', 96: 'tormenta c/granizo', 99: 'tormenta severa'
-  };
 
   // ---------------------------------------------------------
   // Grupos de CelesTrak a combinar (mantiene el total manejable)
@@ -118,7 +92,6 @@
 
     initGoesLayer(true);
     initWorldClouds(false);
-    initStations(true);
     initSatellites(true);
     initCables(false);
     initFlights(false);
@@ -179,18 +152,28 @@
   // Click-to-track: engancha la cámara al objeto clickeado (avión,
   // satélite, barco...) y lo sigue mientras se mueve, reusando el
   // trackedEntity nativo de Cesium — funciona igual para Entities
-  // (cámaras, energía, estaciones) y para PointPrimitives sueltos
+  // (cámaras, energía) y para PointPrimitives sueltos
   // (vuelos, militares, satélites, incendios), sin reimplementar
   // la cámara a mano.
   // ===========================================================
-  var trackerEntity;
+  var trackerEntity, _trackedPoint, _trackedPointColor;
+  var TRACK_TINT = Cesium.Color.CYAN; // mismo criterio de color que el proyecto real: cyan = trackeado
   function trackPicked(picked) {
+    if (_trackedPoint && _trackedPointColor) { _trackedPoint.color = _trackedPointColor; }
+    _trackedPoint = null;
+    _trackedPointColor = null;
+
     var getPosition;
     if (picked.id && picked.id.position) {
       var entity = picked.id;
       getPosition = function (time) { return entity.position.getValue(time); };
     } else if (picked.position) {
       getPosition = function () { return picked.position; };
+      if (picked.color) {
+        _trackedPoint = picked;
+        _trackedPointColor = picked.color.clone();
+        picked.color = TRACK_TINT;
+      }
     } else {
       return; // ej. una polilínea de cable: no hay un único punto que seguir
     }
@@ -203,6 +186,9 @@
   }
   function stopTracking() {
     if (viewer.trackedEntity) viewer.trackedEntity = undefined;
+    if (_trackedPoint && _trackedPointColor) { _trackedPoint.color = _trackedPointColor; }
+    _trackedPoint = null;
+    _trackedPointColor = null;
     var infoEl2 = document.getElementById('hud-info');
     if (infoEl2) infoEl2.classList.remove('is-tracking');
   }
@@ -271,7 +257,6 @@
     on('layer-goes', function (v) { if (goesLayer) goesLayer.show = v; });
     on('layer-world-clouds', function (v) { if (worldCloudsLayer) worldCloudsLayer.show = v; });
     on('layer-radar', function (v) { initRadarLayer(v); });
-    on('layer-stations', function (v) { if (stationsDS) stationsDS.show = v; });
     on('layer-satellites', function (v) { if (satPoints) satPoints.show = v; });
     on('layer-cables', function (v) { initCables(v); if (cablesDS) cablesDS.show = v; });
     on('layer-flights', function (v) { initFlights(v); });
@@ -358,64 +343,6 @@
         radarLayer.alpha = 0.65;
       })
       .catch(function () { /* capa queda vacía si RainViewer no responde */ });
-  }
-
-  // ===========================================================
-  // Capa: estaciones AR (Open-Meteo, sin clave, refresco 10')
-  // ===========================================================
-  var stationsDS;
-  function initStations(enabled) {
-    stationsDS = new Cesium.CustomDataSource('stations');
-    viewer.dataSources.add(stationsDS);
-    stationsDS.show = enabled;
-    loadStations();
-    setInterval(loadStations, 10 * 60 * 1000);
-  }
-
-  function loadStations() {
-    var lats = AR_CITIES.map(function (c) { return c[1]; }).join(',');
-    var lons = AR_CITIES.map(function (c) { return c[2]; }).join(',');
-    var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lats + '&longitude=' + lons +
-      '&current=temperature_2m,wind_speed_10m,wind_direction_10m,weather_code,relative_humidity_2m,surface_pressure&timezone=auto';
-    fetch(url).then(function (r) { return r.json(); }).then(function (data) {
-      var list = Array.isArray(data) ? data : [data];
-      stationsDS.entities.removeAll();
-      list.forEach(function (d, i) {
-        var city = AR_CITIES[i];
-        if (!city || !d || !d.current) return;
-        var c = d.current;
-        var temp = c.temperature_2m;
-        var color = temp >= 30 ? Cesium.Color.fromCssColorString('#ff5b5b')
-          : temp >= 20 ? Cesium.Color.fromCssColorString('#ffb84b')
-          : temp >= 10 ? Cesium.Color.fromCssColorString('#6fd1ff')
-          : Cesium.Color.fromCssColorString('#8fb8ff');
-        var entity = stationsDS.entities.add({
-          position: Cesium.Cartesian3.fromDegrees(city[2], city[1]),
-          point: { pixelSize: 9, color: color, outlineColor: Cesium.Color.BLACK, outlineWidth: 1.5,
-            disableDepthTestDistance: Number.POSITIVE_INFINITY },
-          label: {
-            text: city[0] + '  ' + Math.round(temp) + '°C',
-            font: '11px "JetBrains Mono", monospace',
-            fillColor: Cesium.Color.fromCssColorString('#d6f5ec'),
-            outlineColor: Cesium.Color.BLACK, outlineWidth: 3, style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-            pixelOffset: new Cesium.Cartesian2(12, 0), horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
-            disableDepthTestDistance: Number.POSITIVE_INFINITY,
-            scaleByDistance: new Cesium.NearFarScalar(1.0e6, 1.0, 1.0e7, 0.0)
-          }
-        });
-        entity.__hud = {
-          title: city[0],
-          rows: [
-            ['Temperatura', temp + ' °C'],
-            ['Sensación/estado', WMO_LABEL[c.weather_code] || '—'],
-            ['Viento', Math.round(c.wind_speed_10m) + ' km/h · ' + Math.round(c.wind_direction_10m) + '°'],
-            ['Humedad', c.relative_humidity_2m + ' %'],
-            ['Presión', Math.round(c.surface_pressure) + ' hPa'],
-            ['Fuente', 'Open-Meteo']
-          ]
-        };
-      });
-    }).catch(function () { /* capa queda vacía si Open-Meteo no responde */ });
   }
 
   // ===========================================================
@@ -522,17 +449,63 @@
   // — CORS lo exige). Miles de aviones a la vez: se usa la misma
   // técnica liviana de puntos que los satélites, no Entities con
   // etiqueta fija (sería ilegible y pesado a escala global).
+  //
+  // Movimiento suave entre polls (cada 45s) por DEAD RECKONING:
+  // el proyecto real (bilawalsidhu/gods-eye-view) logra esto
+  // renderizando 30s "detrás" del tiempo real para poder interpolar
+  // siempre entre dos fixes ya conocidos — con nuestro intervalo de
+  // 45s ese margen no alcanza, así que en cambio proyectamos la
+  // posición hacia adelante con el rumbo/velocidad reportados
+  // (marco ENU de Cesium), y cuando llega un fix real nuevo no
+  // saltamos: blendeamos desde la posición actual en pantalla hacia
+  // la nueva en FLIGHT_CORRECTION_MS.
   // ===========================================================
   var flightPoints, flightPointsMap = {}, flightsPollTimer = null;
+  var FLIGHT_POLL_MS = 45000;
+  var FLIGHT_CORRECTION_MS = 1500;
+  var FLIGHT_COLOR = Cesium.Color.fromCssColorString('#ffb84b');
+  var _drOrigin = new Cesium.Cartesian3();
+  var _drOffset = new Cesium.Cartesian3();
+  var _drMatrix = new Cesium.Matrix4();
+  var _drScratchA = new Cesium.Cartesian3();
+  var _drScratchB = new Cesium.Cartesian3();
+
+  function deadReckon(fix, nowMs, out) {
+    var dt = Math.min(Math.max((nowMs - fix.t) / 1000, 0), 120); // tope 2min si dejó de reportar
+    var distM = (fix.speed || 0) * dt;
+    var rad = Cesium.Math.toRadians(fix.heading || 0);
+    _drOffset.x = distM * Math.sin(rad); // este
+    _drOffset.y = distM * Math.cos(rad); // norte
+    _drOffset.z = (fix.vrate || 0) * dt; // arriba
+    Cesium.Cartesian3.fromDegrees(fix.lon, fix.lat, fix.alt, undefined, _drOrigin);
+    Cesium.Transforms.eastNorthUpToFixedFrame(_drOrigin, undefined, _drMatrix);
+    return Cesium.Matrix4.multiplyByPoint(_drMatrix, _drOffset, out);
+  }
+
+  function tickFlights() {
+    var now = Date.now();
+    for (var icao in flightPointsMap) {
+      var f = flightPointsMap[icao];
+      var target = deadReckon(f.fix, now, _drScratchA);
+      if (f.correctFrom && now - f.correctStartT < FLIGHT_CORRECTION_MS) {
+        var frac = (now - f.correctStartT) / FLIGHT_CORRECTION_MS;
+        f.point.position = Cesium.Cartesian3.lerp(f.correctFrom, target, frac, _drScratchB);
+      } else {
+        f.point.position = target;
+      }
+    }
+  }
+
   function initFlights(enabled) {
     if (!flightPoints) {
       flightPoints = viewer.scene.primitives.add(new Cesium.PointPrimitiveCollection());
+      viewer.scene.preRender.addEventListener(tickFlights);
     }
     flightPoints.show = enabled;
     if (!enabled) { if (flightsPollTimer) clearInterval(flightsPollTimer); return; }
     loadFlights();
     if (flightsPollTimer) clearInterval(flightsPollTimer);
-    flightsPollTimer = setInterval(loadFlights, 45000);
+    flightsPollTimer = setInterval(loadFlights, FLIGHT_POLL_MS);
   }
 
   function loadFlights() {
@@ -542,12 +515,12 @@
       return r.json();
     }).then(function (data) {
       document.getElementById('flights-hint').hidden = true;
-      document.getElementById('flights-hint-text').textContent = 'OpenSky · vía proxy · mundial';
       var states = data && data.states || [];
       var seen = {};
+      var now = Date.now();
       states.forEach(function (s) {
         var icao = s[0], callsign = (s[1] || '').trim() || icao, lon = s[5], lat = s[6],
-          onGround = s[8], velocity = s[9], track = s[10], geoAlt = s[13] || s[7];
+          onGround = s[8], velocity = s[9], track = s[10], vrate = s[11], geoAlt = s[13] || s[7];
         if (lon == null || lat == null || onGround) return;
         seen[icao] = true;
         var alt = Math.round(geoAlt || 0);
@@ -562,22 +535,26 @@
             ['Fuente', 'OpenSky Network']
           ]
         };
-        var point = flightPointsMap[icao];
-        if (!point) {
-          point = flightPoints.add({
+        var newFix = { lon: lon, lat: lat, alt: geoAlt || 8000, heading: track || 0, speed: velocity || 0, vrate: vrate || 0, t: now };
+        var f = flightPointsMap[icao];
+        if (!f) {
+          var point = flightPoints.add({
             position: Cesium.Cartesian3.fromDegrees(lon, lat, geoAlt || 8000),
-            pixelSize: 5, color: Cesium.Color.fromCssColorString('#ffb84b'),
+            pixelSize: 5, color: FLIGHT_COLOR,
             outlineColor: Cesium.Color.BLACK, outlineWidth: 1, disableDepthTestDistance: Number.POSITIVE_INFINITY
           });
-          flightPointsMap[icao] = point;
+          f = { point: point, fix: newFix, correctFrom: null, correctStartT: 0 };
+          flightPointsMap[icao] = f;
         } else {
-          point.position = Cesium.Cartesian3.fromDegrees(lon, lat, geoAlt || 8000);
+          f.correctFrom = Cesium.Cartesian3.clone(f.point.position);
+          f.correctStartT = now;
+          f.fix = newFix;
         }
-        point.__hud = hudData;
+        f.point.__hud = hudData;
       });
       // limpiar vuelos que salieron del área o dejaron de reportar
       Object.keys(flightPointsMap).forEach(function (icao) {
-        if (!seen[icao]) { flightPoints.remove(flightPointsMap[icao]); delete flightPointsMap[icao]; }
+        if (!seen[icao]) { flightPoints.remove(flightPointsMap[icao].point); delete flightPointsMap[icao]; }
       });
       var countEl = document.getElementById('flights-hint-text');
       if (countEl) countEl.textContent = states.length + ' vuelos en el aire (OpenSky, mundial)';
