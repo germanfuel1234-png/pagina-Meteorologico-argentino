@@ -28,7 +28,7 @@ demo "God's Eye View", con estas capas:
 | Vuelos militares | adsb.lol | Sin clave, sin backend — CORS abierto · mundial |
 | Satélites en órbita | CelesTrak TLE + satellite.js | Sin clave, ~270 objetos |
 | Cables submarinos | TeleGeography | Snapshot estático (`data/submarine-cables.geo.json`) — tampoco habilita CORS |
-| Cámaras | OSM/Overpass | Por la zona visible del mapa, sin clave |
+| Cámaras | OSM/Overpass | Por la zona visible del mapa, sin clave · al clickear, la cámara "bucea" cerca del punto (con el rumbo real si el nodo de OSM lo trae) |
 | Energía y represas | OSM/Overpass | Por la zona visible del mapa, sin clave |
 | Sismos (7 días) | USGS | Sin clave, M2.5+, mundial |
 | Incendios activos | NASA FIRMS | Vía `smn_proxy.py` con `FIRMS_MAP_KEY` — FIRMS no habilita CORS y pide clave · mundial |
@@ -44,11 +44,15 @@ mucho más fluido — para no tener que pegarla cada vez, se puede guardar en un
 archivo local `local-ion-key.js` (ver plantilla en el repo, listado en
 `.gitignore`: nunca se sube a GitHub).
 
-**Click para "engancharse":** clickear cualquier avión, satélite, militar o
-cámara hace que la cámara lo siga (usa el `trackedEntity` nativo de Cesium) y
-tiñe el punto de cyan (mismo criterio de color que el proyecto real: cyan =
+**Click para "engancharse":** clickear cualquier avión, satélite o militar
+hace que la cámara lo siga (usa el `trackedEntity` nativo de Cesium) y tiñe
+el punto de cyan (mismo criterio de color que el proyecto real: cyan =
 trackeado); cerrar la tarjeta de info o clickear en el vacío lo suelta y
-restaura el color. Vuelos, satélites, militares e incendios se renderizan
+restaura el color. Las cámaras (OSM) son la excepción: en vez de trackear,
+la cámara del globo "bucea" y se acerca al punto (mismo espíritu que el
+`flyToBoundingSphere` del proyecto real, sin la proyección de video en 3D
+que ellos hacen — eso son ~1600 líneas propias que no portamos). Vuelos,
+satélites, militares e incendios se renderizan
 como `PointPrimitiveCollection` (no `Entity`) por volumen — el globo real
 ([bilawalsidhu/gods-eye-view](https://github.com/bilawalsidhu/gods-eye-view),
 la referencia detrás del video) es 100% JavaScript vanilla + CesiumJS + Vite,

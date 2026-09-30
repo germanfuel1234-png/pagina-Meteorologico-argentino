@@ -28,8 +28,20 @@
   // ---------------------------------------------------------
   // Grupos de CelesTrak a combinar (mantiene el total manejable)
   // ---------------------------------------------------------
-  var SAT_GROUPS = ['stations', 'weather', 'gps-ops', 'geo'];
-  var SAT_GEO_CAP = 150; // 'geo' trae ~570; recortamos por performance
+  var SAT_GROUPS = ['stations', 'weather', 'gps-ops', 'geo', 'starlink'];
+  // Recorte por grupo para no matar el performance: 'geo' trae ~570,
+  // 'starlink' ronda los 10.000 (megaconstelación completa) — con 600 ya
+  // se ve bien la "malla" característica sin recalcular miles de órbitas
+  // cada 3s.
+  var SAT_GROUP_CAP = { geo: 150, starlink: 600 };
+  var SAT_GROUP_COLOR = {
+    stations: '#ffe14b', weather: '#6fd1ff', 'gps-ops': '#ffb84b',
+    geo: '#c9a227', starlink: '#4bffd6'
+  };
+  var SAT_GROUP_LABEL = {
+    stations: 'Estación espacial', weather: 'Satélite meteorológico', 'gps-ops': 'GPS',
+    geo: 'Geoestacionario', starlink: 'Starlink'
+  };
 
   // ===========================================================
   // Estado global
@@ -135,7 +147,10 @@
       var picked = viewer.scene.pick(click.position);
       if (!picked) { hideInfo(); return; }
       var data = (picked.id && picked.id.__hud) || picked.__hud;
-      if (data) { showInfo(data); trackPicked(picked); } else { hideInfo(); }
+      if (data) {
+        showInfo(data);
+        if (data.__flyTo) { stopTracking(); data.__flyTo(); } else { trackPicked(picked); }
+      } else { hideInfo(); }
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
   }
 
@@ -358,7 +373,11 @@
     var fetches = SAT_GROUPS.map(function (g) {
       return fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=' + g + '&FORMAT=tle')
         .then(function (r) { return r.text(); })
-        .then(function (text) { return parseTleGroup(text, g === 'geo' ? SAT_GEO_CAP : Infinity); })
+        .then(function (text) {
+          var list = parseTleGroup(text, SAT_GROUP_CAP[g] || Infinity);
+          list.forEach(function (s) { s.group = g; });
+          return list;
+        })
         .catch(function () { return []; });
     });
 
@@ -373,12 +392,12 @@
         var point = satPoints.add({
           position: Cesium.Cartesian3.ZERO,
           pixelSize: 4,
-          color: Cesium.Color.fromCssColorString('#4bffd6'),
+          color: Cesium.Color.fromCssColorString(SAT_GROUP_COLOR[sat.group] || '#4bffd6'),
           outlineColor: Cesium.Color.fromCssColorString('#0a2a24'),
           outlineWidth: 1
         });
-        point.__hud = { name: sat.name, noradId: noradId };
-        satRecords.push({ satrec: satrec, point: point, meta: { OBJECT_NAME: sat.name, NORAD_CAT_ID: noradId } });
+        point.__hud = { name: sat.name, noradId: noradId, group: sat.group };
+        satRecords.push({ satrec: satrec, point: point, meta: { OBJECT_NAME: sat.name, NORAD_CAT_ID: noradId, GROUP: sat.group } });
       });
       tickSatellites();
       setInterval(tickSatellites, 3000);
@@ -390,7 +409,12 @@
     var out = [];
     for (var i = 0; i + 2 < lines.length; i += 3) {
       if (out.length >= cap) break;
-      out.push({ name: lines[i].trim(), line1: lines[i + 1], line2: lines[i + 2] });
+      var line1 = lines[i + 1], line2 = lines[i + 2];
+      // CelesTrak devuelve un aviso de texto (no TLEs) si ya se pidió el mismo
+      // grupo hace menos de 2h ("GP data has not updated..."); sin este chequeo
+      // ese aviso se leería como un satélite fantasma con datos basura.
+      if (!line1 || !line2 || line1.charAt(0) !== '1' || line2.charAt(0) !== '2') continue;
+      out.push({ name: lines[i].trim(), line1: line1, line2: line2 });
     }
     return out;
   }
@@ -410,6 +434,7 @@
       rec.point.__hud = {
         title: rec.meta.OBJECT_NAME,
         rows: [
+          ['Categoría', SAT_GROUP_LABEL[rec.meta.GROUP] || '—'],
           ['NORAD ID', rec.meta.NORAD_CAT_ID],
           ['Altitud', Math.round(geo.height) + ' km'],
           ['Latitud', lat.toFixed(2) + '°'],
@@ -704,13 +729,25 @@
             point: { pixelSize: 6, color: Cesium.Color.fromCssColorString('#ff4d6d'),
               outlineColor: Cesium.Color.BLACK, outlineWidth: 1, disableDepthTestDistance: Number.POSITIVE_INFINITY }
           });
+          // Algunos nodos de OSM traen el rumbo real de la cámara (camera:direction);
+          // cuando está, el "buceo" mira exactamente para donde apunta la cámara real.
+          var dirTag = el.tags['camera:direction'] || el.tags.direction;
+          var headingDeg = dirTag != null && !isNaN(parseFloat(dirTag)) ? parseFloat(dirTag) : null;
           e.__hud = {
             title: kind,
             rows: [
               ['Tipo OSM', el.tags.surveillance || el.tags.highway || '—'],
               ['Nodo', String(el.id)],
               ['Fuente', 'OpenStreetMap / Overpass']
-            ]
+            ],
+            __flyTo: function () {
+              var heading = headingDeg != null ? Cesium.Math.toRadians(headingDeg) : viewer.camera.heading;
+              viewer.camera.flyTo({
+                destination: Cesium.Cartesian3.fromDegrees(el.lon, el.lat, 130),
+                orientation: { heading: heading, pitch: Cesium.Math.toRadians(-18) },
+                duration: 1.5
+              });
+            }
           };
         });
       }, 'cams-count', 'Acercate más para ver cámaras (zona visible muy grande)');
